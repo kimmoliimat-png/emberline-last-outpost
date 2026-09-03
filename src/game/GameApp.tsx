@@ -10,6 +10,22 @@ import { RosterScreen } from "./screens/RosterScreen";
 import { RunScreen } from "./screens/RunScreen";
 import { TitleScreen } from "./screens/TitleScreen";
 
+function bootHold() {
+  try {
+    audio.unlock();
+  } catch {
+    /* autoplay */
+  }
+  useGame.getState().startRun("primer");
+}
+
+if (typeof window !== "undefined") {
+  window.__emberline = {
+    ...(window.__emberline ?? { hp: 0, heat: 0, screen: "title" }),
+    enter: bootHold,
+  };
+}
+
 export function GameApp() {
   const screen = useGame((s) => s.screen);
   const hydrate = useGame((s) => s.hydrate);
@@ -18,27 +34,41 @@ export function GameApp() {
 
   useEffect(() => {
     hydrate();
-    let hold = false;
-    try {
-      hold = new URLSearchParams(window.location.search).has("hold");
-    } catch {
-      hold = false;
-    }
-    const framed = window.parent !== window;
-    if (hold || framed) {
-      if (useGame.getState().screen === "title") startRun("primer");
-    }
+    bootHold();
+    const retries = [50, 200, 600, 1200].map((ms) =>
+      window.setTimeout(() => {
+        if (useGame.getState().screen === "title") bootHold();
+      }, ms),
+    );
+
+    const kick = () => {
+      if (useGame.getState().screen === "title") bootHold();
+    };
+    document.addEventListener("pointerdown", kick, true);
+    document.addEventListener("pointerup", kick, true);
+    document.addEventListener("click", kick, true);
+    document.addEventListener("touchstart", kick, { capture: true, passive: true });
+    document.addEventListener("keydown", kick, true);
 
     const onVis = () => {
       if (document.visibilityState === "visible") {
         applyIdle();
         audio.unlock();
+        kick();
       } else {
         applyIdle();
       }
     };
     document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
+    return () => {
+      retries.forEach((id) => window.clearTimeout(id));
+      document.removeEventListener("pointerdown", kick, true);
+      document.removeEventListener("pointerup", kick, true);
+      document.removeEventListener("click", kick, true);
+      document.removeEventListener("touchstart", kick, true);
+      document.removeEventListener("keydown", kick, true);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [hydrate, applyIdle, startRun]);
 
   useEffect(() => {
@@ -46,35 +76,22 @@ export function GameApp() {
     window.__emberline = {
       ...(window.__emberline ?? { hp: 0, heat: 0 }),
       screen,
-      enter: () => {
-        if (useGame.getState().screen === "title") startRun("primer");
-      },
+      enter: bootHold,
     };
-  }, [screen, startRun]);
+  }, [screen]);
 
   return (
     <main
-      className="flex h-full w-full items-center justify-center overflow-hidden bg-bg-deep"
+      className="flex h-dvh w-full items-center justify-center overflow-hidden bg-bg-deep"
       style={{ containerType: "size" }}
-      onPointerDown={
-        screen === "title"
-          ? (e) => {
-              e.preventDefault();
-              try {
-                audio.unlock();
-              } catch {
-                /* ignore */
-              }
-              startRun("primer");
-            }
-          : undefined
-      }
+      onPointerDown={screen === "title" ? () => bootHold() : undefined}
+      onClick={screen === "title" ? () => bootHold() : undefined}
     >
       <div
         className="relative overflow-hidden bg-bg shadow-[0_0_80px_rgba(0,0,0,0.55)]"
         style={{
-          width: "min(100cqw, calc(100cqh * 1080 / 1920))",
-          height: "min(100cqh, calc(100cqw * 1920 / 1080))",
+          width: "min(100cqw, 100vw, calc(100cqh * 1080 / 1920), calc(100dvh * 1080 / 1920))",
+          height: "min(100cqh, 100dvh, calc(100cqw * 1920 / 1080), calc(100vw * 1920 / 1080))",
         }}
       >
         {screen === "title" ? <TitleScreen /> : null}

@@ -1,50 +1,30 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { audio } from "../audio";
 import { useGame } from "../store";
 
+function enterHold() {
+  try {
+    audio.unlock();
+    audio.setMuted(useGame.getState().save.muted);
+  } catch {
+    /* gesture / autoplay policies */
+  }
+  useGame.getState().startRun("primer");
+}
+
 export function TitleScreen() {
-  const startRun = useGame((s) => s.startRun);
-  const save = useGame((s) => s.save);
-  const started = useRef(false);
-
-  const enter = useCallback(() => {
-    if (started.current) return;
-    if (useGame.getState().screen === "run") return;
-    started.current = true;
-    try {
-      audio.unlock();
-      audio.setMuted(save.muted);
-    } catch {
-      /* gesture / autoplay policies */
-    }
-    startRun("primer");
-  }, [save.muted, startRun]);
-
   useEffect(() => {
     if (typeof window !== "undefined") {
       window.__emberline = {
         ...(window.__emberline ?? { hp: 0, heat: 0, screen: "title" }),
         screen: "title",
-        enter,
+        enter: enterHold,
       };
     }
-
-    const onKey = (ev: KeyboardEvent) => {
-      if (ev.key === "Enter" || ev.key === " " || ev.key === "Spacebar") {
-        ev.preventDefault();
-        enter();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-
-    const framed = typeof window !== "undefined" && window.parent !== window;
-    const t = window.setTimeout(() => enter(), framed ? 80 : 4000);
-
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.clearTimeout(t);
-    };
-  }, [enter]);
+    enterHold();
+    const t = window.setTimeout(enterHold, 100);
+    return () => window.clearTimeout(t);
+  }, []);
 
   return (
     <div
@@ -53,10 +33,8 @@ export function TitleScreen() {
       aria-label="Enter the Emberline"
       className="relative flex h-full w-full cursor-pointer select-none flex-col"
       style={{ touchAction: "manipulation" }}
-      onPointerDown={(e) => {
-        e.preventDefault();
-        enter();
-      }}
+      onPointerDown={() => enterHold()}
+      onClick={() => enterHold()}
     >
       <img
         src="/game/title.jpg"
@@ -79,12 +57,9 @@ export function TitleScreen() {
           id="enter-emberline"
           type="button"
           data-enter="1"
-          onPointerDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            enter();
-          }}
-          className="flex h-16 w-full items-center justify-center rounded-md bg-amber font-display text-3xl tracking-wide text-bg"
+          onPointerDown={() => enterHold()}
+          onClick={() => enterHold()}
+          className="relative z-20 flex h-16 w-full items-center justify-center rounded-md bg-amber font-display text-3xl tracking-wide text-bg"
         >
           Enter the Emberline
         </button>
