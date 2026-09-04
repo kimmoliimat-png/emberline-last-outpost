@@ -216,35 +216,41 @@ export class RunScene extends Phaser.Scene {
     this.load.spritesheet("towerBuild", "/game/tower-build.png?v=raise1", { frameWidth: 256, frameHeight: 256 });
     this.load.image("spike", "/game/heatspike.png?v=rear1");
     this.load.image("drum", "/game/drum.png?v=rear1");
-    this.load.image("pool", "/game/cinder-mite.png?v=mite1");
     this.load.image("barrel", "/game/crate.png?v=crate1");
     this.load.image("plate", "/game/plate.png?v=rear1");
     this.load.image("pylon", "/game/pylon.png?v=rear1");
     this.load.spritesheet("soldier", "/game/soldier.png?v=ha1", { frameWidth: 256, frameHeight: 256 });
-    this.load.spritesheet("soldierIdle", "/game/soldier-idle.png?v=rim2", { frameWidth: 256, frameHeight: 256 });
-    this.load.spritesheet("soldierShoot", "/game/soldier-shoot.png?v=rim2", { frameWidth: 256, frameHeight: 256 });
-    this.load.spritesheet("ashwalker", "/game/ashwalker.png?v=walk3", { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet("soldierIdle", "/game/soldier-idle.png?v=top1", { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet("soldierShoot", "/game/soldier-shoot.png?v=top1", { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet("ashwalker", "/game/ashwalker.png?v=walk7", { frameWidth: 256, frameHeight: 256 });
     this.load.spritesheet("muzzle", "/game/muzzle.png?v=fx2", { frameWidth: 256, frameHeight: 256 });
     this.load.spritesheet("bullet", "/game/bullet.png", { frameWidth: 96, frameHeight: 96 });
-    this.load.spritesheet("impact", "/game/impact.png?v=fx2", { frameWidth: 256, frameHeight: 256 });
-    this.load.spritesheet("props", "/game/props.png?v=det1", { frameWidth: 256, frameHeight: 256 });
-    this.load.spritesheet("brute", "/game/brute.png?v=b1", { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet("impact", "/game/impact.png?v=fx3", { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet("props", "/game/props.png?v=prop2", { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet("brute", "/game/brute.png?v=b5", { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet("pool", "/game/cinder-mite.png?v=walk4", { frameWidth: 256, frameHeight: 256 });
   }
 
   create() {
-    for (const key of ["ash-walk", "brute-walk", "soldier-walk", "soldier-idle", "soldier-shoot", "muzzle-flash", "bullet-spin", "boom", "tower-raise"]) {
+    for (const key of ["ash-walk", "brute-walk", "mite-walk", "soldier-walk", "soldier-idle", "soldier-shoot", "muzzle-flash", "bullet-spin", "boom", "tower-raise"]) {
       if (this.anims.exists(key)) this.anims.remove(key);
     }
     this.anims.create({
       key: "ash-walk",
-      frames: this.anims.generateFrameNumbers("ashwalker", { start: 0, end: 11 }),
-      frameRate: 8,
+      frames: this.anims.generateFrameNumbers("ashwalker", { start: 0, end: 15 }),
+      frameRate: 10,
       repeat: -1,
     });
     this.anims.create({
       key: "brute-walk",
-      frames: this.anims.generateFrameNumbers("brute", { start: 0, end: 3 }),
-      frameRate: 7,
+      frames: this.anims.generateFrameNumbers("brute", { start: 0, end: 7 }),
+      frameRate: 8,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: "mite-walk",
+      frames: this.anims.generateFrameNumbers("pool", { start: 0, end: 3 }),
+      frameRate: 8,
       repeat: -1,
     });
     this.anims.create({
@@ -261,8 +267,8 @@ export class RunScene extends Phaser.Scene {
     });
     this.anims.create({
       key: "soldier-shoot",
-      frames: this.anims.generateFrameNumbers("soldierShoot", { start: 0, end: 7 }),
-      frameRate: 20,
+      frames: this.anims.generateFrameNumbers("soldierShoot", { start: 0, end: 15 }),
+      frameRate: 16,
       repeat: -1,
     });
     this.anims.create({
@@ -342,7 +348,7 @@ export class RunScene extends Phaser.Scene {
     cbody.setAllowGravity(false);
     cbody.setImmovable(true);
     this.player.play("soldier-shoot");
-    for (const key of ["soldier", "soldierIdle", "soldierShoot", "ashwalker", "muzzle", "towerBuild", "tower"]) {
+    for (const key of ["soldier", "soldierIdle", "soldierShoot", "ashwalker", "brute", "pool", "muzzle", "towerBuild", "tower", "props"]) {
       this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
 
@@ -372,14 +378,14 @@ export class RunScene extends Phaser.Scene {
     this.dirt.setDepth(13);
 
     this.motes = this.add.particles(0, 0, "mote", {
-      x: { min: 220, max: 860 },
-      y: { min: 80, max: DESIGN_H - 200 },
-      speedY: { min: 22, max: 88 },
-      speedX: { min: -22, max: 22 },
-      lifespan: 3200,
-      scale: { start: 1.15, end: 0.08 },
-      alpha: { start: 0.55, end: 0 },
-      frequency: 48,
+      x: { min: 180, max: 900 },
+      y: { min: 40, max: DESIGN_H - 180 },
+      speedY: { min: 18, max: 72 },
+      speedX: { min: -18, max: 18 },
+      lifespan: 4200,
+      scale: { start: 1.25, end: 0.06 },
+      alpha: { start: 0.42, end: 0 },
+      frequency: 36,
       quantity: 1,
       blendMode: "ADD",
     });
@@ -798,6 +804,7 @@ export class RunScene extends Phaser.Scene {
       }
       if (data.kind === "drum") s.rotation += dt * 3.2;
       if (data.kind === "brute" && s.anims.currentAnim?.key !== "brute-walk") s.play("brute-walk");
+      if (data.kind === "pool" && s.anims.currentAnim?.key !== "mite-walk") s.play("mite-walk");
       const label = s.getData("label") as Phaser.GameObjects.Text | undefined;
       if (label) label.setPosition(s.x, s.y - 28 * g.scale);
       if (data.kind === "pool" && this.physics.overlap(this.player, s)) this.inFire = true;
@@ -939,7 +946,7 @@ export class RunScene extends Phaser.Scene {
         consumed: false,
       });
     } else if (ev.kind === "pool") {
-      this.makeMob("pool", x, y, {
+      const s = this.makeMob("pool", x, y, {
         kind: "pool",
         hp: 4,
         hits: 0,
@@ -949,6 +956,7 @@ export class RunScene extends Phaser.Scene {
         lane,
         consumed: false,
       });
+      if (s) s.play("mite-walk");
     } else if (ev.kind === "barrel") {
       const parkY = 1140;
       const g = this.groundAt(parkY);
@@ -1010,25 +1018,26 @@ export class RunScene extends Phaser.Scene {
   }
 
   private plantDecor() {
-    const frames = [2, 3, 4, 5];
+    const frames = [0, 1, 2, 3, 4, 5, 6, 7, 8];
     const seed = (this.stage.index + 3) * 9973;
     let s = seed >>> 0;
     const rnd = () => {
       s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
       return s / 4294967296;
     };
-    for (let i = 0; i < 18; i++) {
-      const y = 220 + i * 88 + rnd() * 30;
+    for (let i = 0; i < 26; i++) {
+      const y = 180 + i * 66 + rnd() * 28;
       const g = this.groundAt(y);
       const side = i % 2 === 0 ? -1 : 1;
-      const x = (side < 0 ? g.left : g.right) + side * (18 + rnd() * 36);
+      const x = (side < 0 ? g.left : g.right) + side * (22 + rnd() * 42);
       const spr = this.add.image(x, y, "props", frames[Math.floor(rnd() * frames.length)]);
-      const sc = (0.34 + rnd() * 0.18) * g.scale;
+      const sc = (0.28 + rnd() * 0.22) * g.scale;
       spr.setOrigin(0.5, 0.88);
       spr.setScale(sc);
       spr.setDepth(3.2 + y * 0.003);
-      spr.setAlpha(0.88);
+      spr.setAlpha(0.78 + rnd() * 0.16);
       spr.setFlipX(side > 0);
+      if (this.theme.ashTint) spr.setTint(this.theme.ashTint);
     }
   }
 
@@ -1048,9 +1057,9 @@ export class RunScene extends Phaser.Scene {
     const shadow = s.getData("shadow") as Phaser.GameObjects.Ellipse | undefined;
     if (shadow) {
       shadow.setPosition(s.x, s.y + 6);
-      shadow.setSize(bw * gScale * 0.62, Math.max(10, 18 * gScale));
+      shadow.setSize(bw * gScale * 0.48, Math.max(8, 12 * gScale));
       shadow.setDepth(4.5 + s.y * 0.004);
-      shadow.setAlpha(0.42 + gScale * 0.22);
+      shadow.setAlpha(0.22 + gScale * 0.12);
     }
     const glow = s.getData("glow") as Phaser.GameObjects.Ellipse | undefined;
     const glowRing = s.getData("glowRing") as Phaser.GameObjects.Ellipse | undefined;
@@ -1106,12 +1115,8 @@ export class RunScene extends Phaser.Scene {
     s.setData("consumed", false);
     s.setData("buff", data.buff ?? null);
     if (key === "ashwalker" || key === "brute") {
-      let shadow = s.getData("shadow") as Phaser.GameObjects.Ellipse | undefined;
-      if (!shadow || !shadow.scene) {
-        shadow = this.add.ellipse(x, y + 4, key === "brute" ? 88 : 64, 16, 0x000000, 0.5);
-        s.setData("shadow", shadow);
-      }
-      shadow.setVisible(true);
+      const shadow = s.getData("shadow") as Phaser.GameObjects.Ellipse | undefined;
+      if (shadow) shadow.setVisible(false);
       if (key === "ashwalker") {
         s.play("ash-walk");
         s.anims.timeScale = 0.82 + Math.random() * 0.22;
@@ -1310,15 +1315,7 @@ export class RunScene extends Phaser.Scene {
 
     const hp = (m.getData("hp") as number) - this.cfg.bonuses.damage;
     m.setData("hp", hp);
-    if (d.kind !== "ash") {
-      m.setTint(0xffc070);
-      this.time.delayedCall(55, () => {
-        if (!m.active) return;
-        if (d.kind === "brute") m.setTint(0xff8866);
-        else if (d.kind === "barrel") m.setTint(0xffe8b0);
-        else m.clearTint();
-      });
-    }
+    this.spark.explode(4, m.x, m.y - 8);
     const label = m.getData("label") as Phaser.GameObjects.Text | undefined;
     if (label) label.setText(String(Math.max(0, Math.ceil(hp))));
     audio.hit();
@@ -1387,12 +1384,14 @@ export class RunScene extends Phaser.Scene {
   }
 
   private popFx(x: number, y: number) {
+    this.spark.explode(10, x, y);
     const s = this.fx.get(x, y, "impact") as Phaser.Physics.Arcade.Sprite | null;
     if (!s) return;
     s.enableBody(true, x, y, true, true);
     s.setActive(true).setVisible(true).setDepth(10);
-    s.setDisplaySize(170, 170);
+    s.setDisplaySize(88, 88);
     s.setBlendMode(Phaser.BlendModes.ADD);
+    s.setAlpha(0.85);
     s.play("boom");
     s.once("animationcomplete", () => s.disableBody(true, true));
   }

@@ -69,7 +69,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   asphalt: {
     id: "asphalt",
     region: "The Grade",
-    road: "/game/road.jpg?v=det1",
+    road: "/game/road.jpg?v=real2",
     overlay: 0x1a1008,
     overlayAlpha: 0.12,
     shoulder: 0x1a120c,
@@ -83,7 +83,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   desert: {
     id: "desert",
     region: "Cinder Wash",
-    road: "/game/road-desert.jpg?v=det1",
+    road: "/game/road-desert.jpg?v=real2",
     overlay: 0xc45c12,
     overlayAlpha: 0.1,
     shoulder: 0x3a2814,
@@ -97,7 +97,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   jungle: {
     id: "jungle",
     region: "Green Rot",
-    road: "/game/road-jungle.jpg?v=det1",
+    road: "/game/road-jungle.jpg?v=real2",
     overlay: 0x143018,
     overlayAlpha: 0.16,
     shoulder: 0x0e2212,
@@ -111,7 +111,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   salt: {
     id: "salt",
     region: "Glass Flats",
-    road: "/game/road-salt.jpg?v=det1",
+    road: "/game/road-salt.jpg?v=real2",
     overlay: 0xd8d0c0,
     overlayAlpha: 0.08,
     shoulder: 0x3a3830,
@@ -125,7 +125,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   night: {
     id: "night",
     region: "Blackout Mile",
-    road: "/game/road-night.jpg?v=det1",
+    road: "/game/road-night.jpg?v=real2",
     overlay: 0x0a1028,
     overlayAlpha: 0.22,
     shoulder: 0x080c18,
@@ -139,7 +139,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   tundra: {
     id: "tundra",
     region: "White Grade",
-    road: "/game/road-tundra.jpg?v=det1",
+    road: "/game/road-tundra.jpg?v=real2",
     overlay: 0x88b8d8,
     overlayAlpha: 0.1,
     shoulder: 0x1c2830,
@@ -153,7 +153,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   magma: {
     id: "magma",
     region: "Kiln Road",
-    road: "/game/road-magma.jpg?v=det1",
+    road: "/game/road-magma.jpg?v=real2",
     overlay: 0x9b2f02,
     overlayAlpha: 0.14,
     shoulder: 0x1a0806,
@@ -167,7 +167,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   core: {
     id: "core",
     region: "Ember Heart",
-    road: "/game/road-core.jpg?v=det1",
+    road: "/game/road-core.jpg?v=real2",
     overlay: 0xe85d04,
     overlayAlpha: 0.12,
     shoulder: 0x180c08,
@@ -404,7 +404,7 @@ function holdLook(theme: ThemeId, index: number, name: string): HoldLook {
   let overlayAlpha = Math.min(0.22, base.overlayAlpha + (slot === 2 ? 0.05 : 0));
   let haze = 0.05 + slot * 0.04;
   if (theme === "asphalt") {
-    if (n.includes("overpass") || n.includes("stack") || slot === 2) road = "/game/road-overpass.jpg?v=var1";
+    if (n.includes("overpass") || n.includes("stack") || slot === 2) road = "/game/road-overpass.jpg?v=real2";
     if (n.includes("culvert")) {
       overlay = 0x081018;
       overlayAlpha = 0.24;
@@ -417,21 +417,21 @@ function holdLook(theme: ThemeId, index: number, name: string): HoldLook {
       haze = 0.16;
     }
   } else if (theme === "desert") {
-    if (slot !== 0 || n.includes("well") || n.includes("dune") || n.includes("dry")) road = "/game/road-desert2.jpg?v=var1";
+    if (slot !== 0 || n.includes("well") || n.includes("dune") || n.includes("dry")) road = "/game/road-desert2.jpg?v=real2";
     if (n.includes("sunkill") || n.includes("glass")) {
       overlay = 0xffaa44;
       overlayAlpha = 0.16;
       haze = 0.18;
     }
   } else if (theme === "jungle") {
-    if (slot !== 0 || n.includes("canopy") || n.includes("wet") || n.includes("root")) road = "/game/road-jungle2.jpg?v=var1";
+    if (slot !== 0 || n.includes("canopy") || n.includes("wet") || n.includes("root")) road = "/game/road-jungle2.jpg?v=real2";
     if (n.includes("rot") || n.includes("gauntlet")) {
       overlay = 0x0a2010;
       overlayAlpha = 0.22;
       haze = 0.2;
     }
   } else if (theme === "night") {
-    if (slot !== 0 || n.includes("neon") || n.includes("sodium") || n.includes("midnight")) road = "/game/road-night2.jpg?v=var1";
+    if (slot !== 0 || n.includes("neon") || n.includes("sodium") || n.includes("midnight")) road = "/game/road-night2.jpg?v=real2";
     if (n.includes("blackout") || n.includes("grid")) {
       overlay = 0x050814;
       overlayAlpha = 0.3;
