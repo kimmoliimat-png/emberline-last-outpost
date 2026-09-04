@@ -1,13 +1,14 @@
 # Emberline: Last Outpost
 
-Portrait last-stand horde defense. A Warden holds the Emberline: strafe the grade, burn the Ashwalker ranks, and raise gun towers when the salvage is enough.
+Portrait last-stand horde defense. A Warden holds the Emberline: fifty themed holds up the grade, from burnt asphalt to the Ember Heart.
 
 ## Play
 
 - **A / D** or swipe to strafe
 - The rifle fires on its own — watch heat
 - Kills drop scrap; spend it to raise automated gun towers
-- Hold until the last rank falls
+- Clear a hold to open the next node **north** on the map
+- Themes shift as you climb: street, desert, jungle, salt flats, night city, tundra, kiln, heart
 
 ## Run locally
 

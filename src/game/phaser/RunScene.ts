@@ -9,9 +9,11 @@ import {
   TOWER_SLOTS,
   stageById,
   starsFor,
+  themeOf,
   towerCost,
   type SpawnEvent,
   type StageDef,
+  type ThemeVisual,
 } from "../data/catalog";
 import { audio } from "../audio";
 import type { RunHud, RunResult } from "../store";
@@ -99,8 +101,10 @@ export class RunScene extends Phaser.Scene {
   private nameText!: Phaser.GameObjects.Text;
   private spark!: Phaser.GameObjects.Particles.ParticleEmitter;
   private dirt!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private motes!: Phaser.GameObjects.Particles.ParticleEmitter;
   private bootShadow!: Phaser.GameObjects.Ellipse;
   private muzzleFx!: Phaser.GameObjects.Sprite;
+  private theme!: ThemeVisual;
 
   private hp = 100;
   private maxHp = 100;
@@ -139,6 +143,7 @@ export class RunScene extends Phaser.Scene {
 
   init() {
     this.stage = stageById(this.cfg.stageId);
+    this.theme = themeOf(this.stage);
     this.maxHp = this.cfg.bonuses.maxHp;
     this.hp = this.maxHp;
     this.heat = 0;
@@ -186,7 +191,7 @@ export class RunScene extends Phaser.Scene {
       fill.width = 420 * p;
     });
 
-    this.load.image("road", "/game/road.jpg?v=td2");
+    this.load.image("road", this.theme.road);
     this.load.image("sky", "/game/sky.jpg");
     this.load.image("tower", "/game/tower.png?v=td1");
     this.load.spritesheet("towerBuild", "/game/tower-build.png?v=raise1", { frameWidth: 256, frameHeight: 256 });
@@ -199,10 +204,10 @@ export class RunScene extends Phaser.Scene {
     this.load.spritesheet("soldier", "/game/soldier.png?v=ha1", { frameWidth: 256, frameHeight: 256 });
     this.load.spritesheet("soldierIdle", "/game/soldier-idle.png?v=ha1", { frameWidth: 256, frameHeight: 256 });
     this.load.spritesheet("soldierShoot", "/game/soldier-shoot.png?v=ha1", { frameWidth: 256, frameHeight: 256 });
-    this.load.spritesheet("ashwalker", "/game/ashwalker.png?v=ha1", { frameWidth: 256, frameHeight: 256 });
-    this.load.spritesheet("muzzle", "/game/muzzle.png?v=road1", { frameWidth: 128, frameHeight: 128 });
+    this.load.spritesheet("ashwalker", "/game/ashwalker.png?v=walk2", { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet("muzzle", "/game/muzzle.png?v=fx2", { frameWidth: 256, frameHeight: 256 });
     this.load.spritesheet("bullet", "/game/bullet.png", { frameWidth: 96, frameHeight: 96 });
-    this.load.spritesheet("impact", "/game/impact.png?v=cool1", { frameWidth: 128, frameHeight: 128 });
+    this.load.spritesheet("impact", "/game/impact.png?v=fx2", { frameWidth: 256, frameHeight: 256 });
   }
 
   create() {
@@ -211,8 +216,8 @@ export class RunScene extends Phaser.Scene {
     }
     this.anims.create({
       key: "ash-walk",
-      frames: this.anims.generateFrameNumbers("ashwalker", { start: 0, end: 11 }),
-      frameRate: 14,
+      frames: this.anims.generateFrameNumbers("ashwalker", { frames: [0, 1, 2, 3, 4, 5, 4, 3, 2, 1] }),
+      frameRate: 12,
       repeat: -1,
     });
     this.anims.create({
@@ -230,13 +235,13 @@ export class RunScene extends Phaser.Scene {
     this.anims.create({
       key: "soldier-shoot",
       frames: this.anims.generateFrameNumbers("soldierShoot", { start: 0, end: 7 }),
-      frameRate: 16,
+      frameRate: 18,
       repeat: -1,
     });
     this.anims.create({
       key: "muzzle-flash",
       frames: this.anims.generateFrameNumbers("muzzle", { start: 0, end: 3 }),
-      frameRate: 28,
+      frameRate: 22,
       repeat: 0,
     });
     this.anims.create({
@@ -259,13 +264,17 @@ export class RunScene extends Phaser.Scene {
     });
 
     const g = this.add.graphics();
-    g.fillStyle(0xffb347, 1);
+    g.fillStyle(this.theme.spark, 1);
     g.fillCircle(6, 6, 6);
     g.generateTexture("spark", 12, 12);
     g.clear();
     g.fillStyle(0x6b4424, 1);
     g.fillCircle(5, 5, 5);
     g.generateTexture("dirt", 10, 10);
+    g.clear();
+    g.fillStyle(this.theme.mote, 1);
+    g.fillCircle(3, 3, 3);
+    g.generateTexture("mote", 6, 6);
     g.destroy();
 
     this.sky = this.add.image(DESIGN_W / 2, 90, "sky").setDisplaySize(DESIGN_W, 180).setDepth(0).setVisible(false);
@@ -273,8 +282,10 @@ export class RunScene extends Phaser.Scene {
       .image(DESIGN_W / 2, DESIGN_H / 2, "road")
       .setDisplaySize(DESIGN_W, DESIGN_H)
       .setDepth(1);
-    this.add.rectangle(90, DESIGN_H / 2, 180, DESIGN_H, 0x1a120c, 0.55).setDepth(2);
-    this.add.rectangle(990, DESIGN_H / 2, 180, DESIGN_H, 0x1a120c, 0.55).setDepth(2);
+    this.add.rectangle(90, DESIGN_H / 2, 180, DESIGN_H, this.theme.shoulder, 0.5).setDepth(2);
+    this.add.rectangle(990, DESIGN_H / 2, 180, DESIGN_H, this.theme.shoulder, 0.5).setDepth(2);
+    this.add.rectangle(DESIGN_W / 2, DESIGN_H / 2, DESIGN_W, DESIGN_H, this.theme.overlay, this.theme.overlayAlpha).setDepth(2.2);
+    this.add.rectangle(DESIGN_W / 2, 70, DESIGN_W, 140, 0x100c09, 0.18).setDepth(2.3);
 
     this.mobs = this.physics.add.group({ maxSize: 140, allowGravity: false, runChildUpdate: false });
     this.bullets = this.physics.add.group({ maxSize: 180, allowGravity: false });
@@ -320,11 +331,25 @@ export class RunScene extends Phaser.Scene {
     });
     this.dirt.setDepth(13);
 
+    this.motes = this.add.particles(0, 0, "mote", {
+      x: { min: 220, max: 860 },
+      y: { min: 80, max: DESIGN_H - 200 },
+      speedY: { min: 22, max: 88 },
+      speedX: { min: -22, max: 22 },
+      lifespan: 3200,
+      scale: { start: 1.15, end: 0.08 },
+      alpha: { start: 0.55, end: 0 },
+      frequency: 48,
+      quantity: 1,
+      blendMode: "ADD",
+    });
+    this.motes.setDepth(4);
+
     this.muzzleFx = this.add.sprite(0, 0, "muzzle", 0);
     this.muzzleFx.setVisible(false);
     this.muzzleFx.setDepth(15);
     this.muzzleFx.setBlendMode(Phaser.BlendModes.ADD);
-    this.muzzleFx.setDisplaySize(42, 58);
+    this.muzzleFx.setDisplaySize(96, 120);
     this.muzzleFx.setOrigin(0.5, 0.92);
     this.muzzleFx.on("animationcomplete", () => this.muzzleFx.setVisible(false));
 
@@ -430,7 +455,7 @@ export class RunScene extends Phaser.Scene {
     this.add.rectangle(90, 54, 900, 14, 0x3a3228).setOrigin(0, 0.5).setDepth(21);
     this.hpFill = this.add.rectangle(90, 54, 900, 14, 0xd24a3c).setOrigin(0, 0.5).setDepth(22);
     this.add
-      .text(90, 32, "WARDEN", {
+      .text(90, 32, this.theme.region.toUpperCase(), {
         fontFamily: "Barlow, sans-serif",
         fontSize: "18px",
         color: "#a89880",
@@ -450,7 +475,7 @@ export class RunScene extends Phaser.Scene {
     this.distFill = this.add.rectangle(90, 128, 0, 6, 0xf4b942).setOrigin(0, 0.5).setDepth(22);
 
     this.nameText = this.add
-      .text(200, 32, this.stage.name.toUpperCase(), {
+      .text(200, 32, `${this.stage.index + 1}  ${this.stage.name.toUpperCase()}`, {
         fontFamily: "Teko, sans-serif",
         fontSize: "28px",
         color: "#f4b942",
@@ -500,8 +525,12 @@ export class RunScene extends Phaser.Scene {
     this.updateHudBars();
     this.iFrames = Math.max(0, this.iFrames - dt);
     this.trauma = Math.max(0, this.trauma - dt * 2.4);
-    const shake = this.trauma * this.trauma * 10;
-    this.cameras.main.setScroll((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    if (this.trauma > 0.16) {
+      const shake = (this.trauma - 0.16) * (this.trauma - 0.16) * 12;
+      this.cameras.main.setScroll((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    } else {
+      this.cameras.main.setScroll(0, 0);
+    }
     if (this.player) {
       this.player.setAlpha(this.iFrames > 0 ? 0.55 + 0.45 * Math.sin(_time / 40) : 1);
     }
@@ -613,7 +642,7 @@ export class RunScene extends Phaser.Scene {
       s.x = Phaser.Math.Clamp(s.x, g.left + 10, g.right - 10);
       this.plantSprite(s, g.scale);
       if (data.kind === "drum") s.rotation += dt * 3.2;
-      if (data.kind === "ash" && s.anims) s.anims.play("ash-walk", true);
+      if (data.kind === "ash" && s.anims.currentAnim?.key !== "ash-walk") s.play("ash-walk");
       const label = s.getData("label") as Phaser.GameObjects.Text | undefined;
       if (label) label.setPosition(s.x, s.y - 28 * g.scale);
       if (data.kind === "pool" && this.physics.overlap(this.player, s)) this.inFire = true;
@@ -678,13 +707,13 @@ export class RunScene extends Phaser.Scene {
       if (ev.kind === "ash") {
         const col = i % cols;
         const rank = Math.floor(i / cols);
-        const y0 = 150 - rank * 72;
+        const y0 = 360 - rank * 86;
         const g = this.groundAt(y0);
         const span = g.right - g.left;
         x = g.left + ((col + 0.5) / cols) * span + (Math.random() * 16 - 8);
         y = y0;
       } else {
-        const y0 = 130 - Math.floor(i / cols) * 70;
+        const y0 = 340 - Math.floor(i / cols) * 78;
         const g = this.groundAt(y0);
         const laneT = (LANE_X[lane] - ROAD_LEFT) / (ROAD_RIGHT - ROAD_LEFT);
         x = g.left + laneT * (g.right - g.left) + (Math.random() * 18 - 9);
@@ -781,8 +810,12 @@ export class RunScene extends Phaser.Scene {
     const bw = (s.getData("bw") as number) || 96;
     const bh = (s.getData("bh") as number) || 96;
     const originY = (s.getData("originY") as number) ?? FEET_ORIGIN;
-    s.setOrigin(0.5, originY);
-    s.setDisplaySize(bw * gScale, bh * gScale);
+    if (s.originY !== originY) s.setOrigin(0.5, originY);
+    const sx = (bw * gScale) / 256;
+    const sy = (bh * gScale) / 256;
+    if (Math.abs(s.scaleX - sx) > 0.004 || Math.abs(s.scaleY - sy) > 0.004) {
+      s.setScale(sx, sy);
+    }
     s.setDepth(5 + s.y * 0.004);
     const shadow = s.getData("shadow") as Phaser.GameObjects.Ellipse | undefined;
     if (shadow) {
@@ -832,6 +865,9 @@ export class RunScene extends Phaser.Scene {
       }
       shadow.setVisible(true);
       s.play("ash-walk");
+      s.anims.setProgress(Math.random());
+      if (this.theme.ashTint) s.setTint(this.theme.ashTint);
+      this.dirt.explode(4, x, y);
     } else {
       const shadow = s.getData("shadow") as Phaser.GameObjects.Ellipse | undefined;
       if (shadow) shadow.setVisible(false);
@@ -1005,10 +1041,12 @@ export class RunScene extends Phaser.Scene {
 
     const hp = (m.getData("hp") as number) - this.cfg.bonuses.damage;
     m.setData("hp", hp);
-    m.setTintFill(0xffffff);
-    this.time.delayedCall(40, () => {
-      if (m.active) m.clearTint();
-    });
+    if (d.kind !== "ash") {
+      m.setTint(0xffc070);
+      this.time.delayedCall(55, () => {
+        if (m.active) m.clearTint();
+      });
+    }
     const label = m.getData("label") as Phaser.GameObjects.Text | undefined;
     if (label) label.setText(String(Math.max(0, Math.ceil(hp))));
     audio.hit();
@@ -1026,7 +1064,7 @@ export class RunScene extends Phaser.Scene {
       audio.boom();
       this.lastBoom = this.time.now;
     }
-    this.trauma = Math.min(1, this.trauma + (d.kind === "ash" ? 0.08 : 0.22));
+    this.trauma = Math.min(1, this.trauma + (d.kind === "ash" ? 0.03 : 0.18));
     this.recycle(m);
   }
 

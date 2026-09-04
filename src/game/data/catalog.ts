@@ -33,7 +33,142 @@ export interface StageDef {
   rations: number;
   xp: number;
   spawns: SpawnEvent[];
+  theme: ThemeId;
+  region: string;
+  index: number;
 }
+
+export type ThemeId = "asphalt" | "desert" | "jungle" | "salt" | "night" | "tundra" | "magma" | "core";
+
+export interface ThemeVisual {
+  id: ThemeId;
+  region: string;
+  road: string;
+  overlay: number;
+  overlayAlpha: number;
+  shoulder: number;
+  mote: number;
+  ashTint: number | null;
+  spark: number;
+  mapFrom: string;
+  mapTo: string;
+  accent: string;
+}
+
+export const THEMES: Record<ThemeId, ThemeVisual> = {
+  asphalt: {
+    id: "asphalt",
+    region: "The Grade",
+    road: "/game/road.jpg?v=td2",
+    overlay: 0x1a1008,
+    overlayAlpha: 0.12,
+    shoulder: 0x1a120c,
+    mote: 0xc48a22,
+    ashTint: null,
+    spark: 0xffb347,
+    mapFrom: "#24180e",
+    mapTo: "#3a2a18",
+    accent: "#c48a22",
+  },
+  desert: {
+    id: "desert",
+    region: "Cinder Wash",
+    road: "/game/road-desert.jpg",
+    overlay: 0xc45c12,
+    overlayAlpha: 0.1,
+    shoulder: 0x3a2814,
+    mote: 0xe8c070,
+    ashTint: 0xffd9a0,
+    spark: 0xffcc66,
+    mapFrom: "#4a3014",
+    mapTo: "#8a4a18",
+    accent: "#e8a040",
+  },
+  jungle: {
+    id: "jungle",
+    region: "Green Rot",
+    road: "/game/road-jungle.jpg",
+    overlay: 0x143018,
+    overlayAlpha: 0.16,
+    shoulder: 0x0e2212,
+    mote: 0x7fa86a,
+    ashTint: 0xb8d4a0,
+    spark: 0x9ad47a,
+    mapFrom: "#102414",
+    mapTo: "#1c3a22",
+    accent: "#7fa86a",
+  },
+  salt: {
+    id: "salt",
+    region: "Glass Flats",
+    road: "/game/road-salt.jpg",
+    overlay: 0xd8d0c0,
+    overlayAlpha: 0.08,
+    shoulder: 0x3a3830,
+    mote: 0xf3ead8,
+    ashTint: 0xe8e0d0,
+    spark: 0xffffff,
+    mapFrom: "#3a3832",
+    mapTo: "#5a564c",
+    accent: "#d8d0c0",
+  },
+  night: {
+    id: "night",
+    region: "Blackout Mile",
+    road: "/game/road-night.jpg",
+    overlay: 0x0a1028,
+    overlayAlpha: 0.22,
+    shoulder: 0x080c18,
+    mote: 0xf4b942,
+    ashTint: 0xc8b0e0,
+    spark: 0x88aaff,
+    mapFrom: "#0a1020",
+    mapTo: "#182040",
+    accent: "#88aaff",
+  },
+  tundra: {
+    id: "tundra",
+    region: "White Grade",
+    road: "/game/road-tundra.jpg",
+    overlay: 0x88b8d8,
+    overlayAlpha: 0.1,
+    shoulder: 0x1c2830,
+    mote: 0xe8f4ff,
+    ashTint: 0xd0e8ff,
+    spark: 0xc0e8ff,
+    mapFrom: "#1c2830",
+    mapTo: "#2a4048",
+    accent: "#88b8d8",
+  },
+  magma: {
+    id: "magma",
+    region: "Kiln Road",
+    road: "/game/road-magma.jpg",
+    overlay: 0x9b2f02,
+    overlayAlpha: 0.14,
+    shoulder: 0x1a0806,
+    mote: 0xe85d04,
+    ashTint: 0xff8860,
+    spark: 0xff6a2a,
+    mapFrom: "#2a0c08",
+    mapTo: "#5a180c",
+    accent: "#e85d04",
+  },
+  core: {
+    id: "core",
+    region: "Ember Heart",
+    road: "/game/road-core.jpg",
+    overlay: 0xe85d04,
+    overlayAlpha: 0.12,
+    shoulder: 0x180c08,
+    mote: 0xf4b942,
+    ashTint: 0xffb060,
+    spark: 0xffc14a,
+    mapFrom: "#2a1408",
+    mapTo: "#6a2a0c",
+    accent: "#f4b942",
+  },
+};
 
 export interface WardenDef {
   id: string;
@@ -72,222 +207,211 @@ export function towerCost(built: number): number {
   return 22 + built * 18;
 }
 
-function wave(
-  start: number,
-  gap: number,
-  rows: Array<[SpawnKind, number[], number?, number?]>,
-): SpawnEvent[] {
-  return rows.map((row, i) => {
-    const [kind, lanes, hits, count] = row;
-    const ev: SpawnEvent = { at: start + i * gap, kind, lanes };
-    if (hits) ev.hits = hits;
-    if (count) ev.count = count;
-    return ev;
-  });
-}
-
 function horde(at: number, count: number, lanes: number[] = [0, 1, 2]): SpawnEvent {
   return { at, kind: "ash", lanes, count };
 }
 
-export const STAGES: StageDef[] = [
+function rand(seed: number) {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+const CAMPAIGN: Array<{
+  theme: ThemeId;
+  region: string;
+  holds: Array<{ name: string; blurb: string }>;
+}> = [
   {
-    id: "primer",
-    name: "Primer Cut",
-    blurb: "Strafe, shoot, and raise a gun tower. Burn the first ranks before they reach you.",
-    length: 7800,
-    scroll: 230,
-    march: 138,
-    ashHp: 2,
-    tutorial: true,
-    scrap: 70,
-    ember: 16,
-    rations: 10,
-    xp: 40,
-    spawns: [
-      horde(80, 5),
-      { at: 1500, kind: "barrel", lanes: [1] },
-      horde(2100, 8),
-      { at: 2900, kind: "pool", lanes: [0] },
-      horde(3400, 10),
-      { at: 4300, kind: "plate", lanes: [1], hits: 3 },
-      { at: 4900, kind: "spike", lanes: [2], count: 2 },
-      { at: 5400, kind: "barrel", lanes: [0] },
-      { at: 5900, kind: "pylons", lanes: [0, 2] },
-      { at: 6500, kind: "drum", lanes: [1, 2], count: 2 },
-      horde(7200, 16),
+    theme: "asphalt",
+    region: "The Grade",
+    holds: [
+      { name: "Primer Cut", blurb: "Strafe, shoot, and raise a gun tower. Burn the first ranks before they reach you." },
+      { name: "Cinder Shoulder", blurb: "The grade tightens. Keep the prow clear as the second rank finds its feet." },
+      { name: "Mile Marker 9", blurb: "Nine miles of cracked asphalt and a horde that does not rest." },
+      { name: "Rust Culvert", blurb: "The underpass funnels them. Strafe the mouth of the pipe." },
+      { name: "Heat Shimmer", blurb: "Guns run hot. Pace the trigger or the line cooks itself." },
+      { name: "Overpass Teeth", blurb: "Concrete fangs overhead. Salvage under the spans, then hold." },
+      { name: "Stack Grade", blurb: "The interchange rises behind you. This is still the easy country." },
     ],
   },
   {
-    id: "cinder",
-    name: "Cinder Approach",
-    blurb: "Ashwalkers gather on the cracked asphalt and march the grade in ranks.",
-    length: 9200,
-    scroll: 245,
-    march: 146,
-    ashHp: 2,
-    tutorial: false,
-    scrap: 55,
-    ember: 12,
-    rations: 8,
-    xp: 50,
-    spawns: [
-      horde(480, 8),
-      { at: 1100, kind: "barrel", lanes: [2] },
-      horde(1600, 10),
-      { at: 2300, kind: "spike", lanes: [0], count: 2 },
-      horde(2800, 12),
-      { at: 3500, kind: "plate", lanes: [1], hits: 3 },
-      horde(4000, 10),
-      { at: 4600, kind: "pool", lanes: [1] },
-      { at: 5000, kind: "barrel", lanes: [0] },
-      horde(5400, 14),
-      { at: 6100, kind: "drum", lanes: [1], count: 2 },
-      { at: 6600, kind: "pylons", lanes: [0, 2] },
-      horde(7100, 12),
-      { at: 7800, kind: "barrel", lanes: [2] },
-      horde(8400, 18),
+    theme: "desert",
+    region: "Cinder Wash",
+    holds: [
+      { name: "Ochre Wash", blurb: "Sand eats the lane markers. The dead come in from the dunes." },
+      { name: "Dune Cut", blurb: "A notch through the wash. Fast ranks, little cover." },
+      { name: "Dry Well", blurb: "They pour from the wellhead. Bank scrap before the second surge." },
+      { name: "Scorpion Grade", blurb: "Heatspikes skitter the shoulders. Prioritize the fast ones." },
+      { name: "Glass Ridge", blurb: "Sun-baked plate. Break the shields or drown in the ranks behind." },
+      { name: "Sunkill", blurb: "The wash ends in a white-hot mile. Do not let the drums through." },
     ],
   },
   {
-    id: "drums",
-    name: "Drum Gauntlet",
-    blurb: "Burning drums roll the grade ahead of the horde. Prioritize the fast ones.",
-    length: 9600,
-    scroll: 250,
-    march: 150,
-    ashHp: 2,
-    tutorial: false,
-    scrap: 60,
-    ember: 14,
-    rations: 8,
-    xp: 55,
-    spawns: wave(500, 520, [
-      ["drum", [0], undefined, 2],
-      ["ash", [0, 1, 2], undefined, 8],
-      ["drum", [2], undefined, 2],
-      ["barrel", [1]],
-      ["ash", [0, 1, 2], undefined, 10],
-      ["spike", [0], undefined, 2],
-      ["drum", [1], undefined, 2],
-      ["ash", [0, 1, 2], undefined, 12],
-      ["plate", [1], 4],
-      ["drum", [0, 2], undefined, 3],
-      ["pool", [0]],
-      ["ash", [0, 1, 2], undefined, 10],
-      ["pylons", [0, 2]],
-      ["drum", [1], undefined, 2],
-      ["ash", [0, 1, 2], undefined, 14],
-      ["barrel", [1]],
-      ["drum", [0, 2], undefined, 3],
-      ["ash", [0, 1, 2], undefined, 16],
-    ]),
-  },
-  {
-    id: "trench",
-    name: "Heat Trench",
-    blurb: "Creeping fire marches with the dead. Snuff pools or the guns seize mid-horde.",
-    length: 10000,
-    scroll: 255,
-    march: 148,
-    ashHp: 2,
-    tutorial: false,
-    scrap: 65,
-    ember: 20,
-    rations: 6,
-    xp: 60,
-    spawns: wave(480, 500, [
-      ["pool", [0]],
-      ["ash", [0, 1, 2], undefined, 8],
-      ["pool", [2]],
-      ["ash", [0, 1, 2], undefined, 10],
-      ["barrel", [0]],
-      ["spike", [2], undefined, 2],
-      ["pool", [0, 2]],
-      ["ash", [0, 1, 2], undefined, 12],
-      ["plate", [1], 4],
-      ["pool", [1]],
-      ["drum", [2], undefined, 2],
-      ["ash", [0, 1, 2], undefined, 14],
-      ["pylons", [0, 2]],
-      ["pool", [2]],
-      ["barrel", [1]],
-      ["ash", [0, 1, 2], undefined, 12],
-      ["pool", [0, 1]],
-      ["ash", [0, 1, 2], undefined, 16],
-    ]),
-  },
-  {
-    id: "lanterns",
-    name: "Twin Lanterns",
-    blurb: "Choice Pylons sit on the shoulders. Shoot left for Overclock, right for Plating.",
-    length: 10200,
-    scroll: 260,
-    march: 154,
-    ashHp: 3,
-    tutorial: false,
-    scrap: 70,
-    ember: 16,
-    rations: 10,
-    xp: 65,
-    spawns: [
-      { at: 500, kind: "pylons", lanes: [0, 2] },
-      horde(900, 10),
-      { at: 1600, kind: "plate", lanes: [0], hits: 4 },
-      { at: 1600, kind: "plate", lanes: [2], hits: 3 },
-      { at: 2100, kind: "barrel", lanes: [1] },
-      { at: 2500, kind: "pylons", lanes: [0, 2] },
-      horde(2900, 12),
-      { at: 3600, kind: "spike", lanes: [1], count: 3 },
-      horde(4100, 10),
-      { at: 4700, kind: "drum", lanes: [2], count: 2 },
-      { at: 5200, kind: "pylons", lanes: [0, 2] },
-      { at: 5600, kind: "pool", lanes: [1] },
-      horde(6000, 14),
-      { at: 6800, kind: "plate", lanes: [1], hits: 5 },
-      { at: 7300, kind: "pylons", lanes: [0, 2] },
-      { at: 7800, kind: "barrel", lanes: [0] },
-      horde(8400, 18),
+    theme: "jungle",
+    region: "Green Rot",
+    holds: [
+      { name: "Green Rot", blurb: "Vines take the grade. Sightlines die. Listen for the march." },
+      { name: "Canopy Vein", blurb: "The road is a wet trench. Spores and ashwalkers share it." },
+      { name: "Mosquito Cut", blurb: "They come in thin files, then all at once." },
+      { name: "Vine Gauntlet", blurb: "Drums crash the undergrowth. Burn a lane and keep it." },
+      { name: "Wet Mile", blurb: "Fire pools in the ruts. Strafe off the heat or the guns seize." },
+      { name: "Root Trench", blurb: "The jungle exhales a last horde. Hold the trench mouth." },
     ],
   },
   {
-    id: "approach",
-    name: "Stack Approach",
-    blurb: "The interchange rises behind you. Hold the prow until the last rank falls.",
-    length: 11000,
-    scroll: 270,
-    march: 160,
-    ashHp: 3,
-    tutorial: false,
-    scrap: 90,
-    ember: 22,
-    rations: 12,
-    xp: 80,
-    spawns: [
-      horde(420, 10),
-      { at: 1000, kind: "drum", lanes: [2], count: 2 },
-      { at: 1400, kind: "pool", lanes: [1] },
-      horde(1800, 12),
-      { at: 2500, kind: "spike", lanes: [0], count: 3 },
-      { at: 2900, kind: "barrel", lanes: [1] },
-      { at: 3300, kind: "pylons", lanes: [0, 2] },
-      horde(3700, 16),
-      { at: 4500, kind: "plate", lanes: [1], hits: 5 },
-      { at: 5000, kind: "drum", lanes: [0], count: 2 },
-      { at: 5400, kind: "pool", lanes: [2] },
-      horde(5800, 14),
-      { at: 6500, kind: "spike", lanes: [2], count: 2 },
-      { at: 6900, kind: "barrel", lanes: [0] },
-      { at: 7300, kind: "pylons", lanes: [0, 2] },
-      { at: 7700, kind: "drum", lanes: [1], count: 3 },
-      horde(8200, 16),
-      { at: 9000, kind: "pool", lanes: [2] },
-      { at: 9400, kind: "plate", lanes: [1], hits: 4 },
-      horde(9800, 20),
-      { at: 10600, kind: "drum", lanes: [1], count: 2 },
+    theme: "salt",
+    region: "Glass Flats",
+    holds: [
+      { name: "White Plate", blurb: "Alkali crust. Every shot rings. The dead do not mind the glare." },
+      { name: "Alkali Tongue", blurb: "A pale spit of road. Nowhere to hide, plenty to spend." },
+      { name: "Blind Flats", blurb: "Mirage ranks. Count the feet, not the shimmer." },
+      { name: "Bone Road", blurb: "Salt-eaten plate and drums. Crack the shields first." },
+      { name: "Mirage Hold", blurb: "Two pylons in the white. Claim one. Survive the rest." },
+      { name: "Crystal Shoulder", blurb: "The flats end in a crystal berm. The horde does not." },
+    ],
+  },
+  {
+    theme: "night",
+    region: "Blackout Mile",
+    holds: [
+      { name: "Blackout Mile", blurb: "Sodium lamps and a dead grid. Muzzle flash is your map." },
+      { name: "Sodium Vein", blurb: "Amber light, purple ash. Keep the center lane." },
+      { name: "Neon Culvert", blurb: "Ruined signs strobe the horde. Do not chase ghosts." },
+      { name: "Dead Grid", blurb: "The city hums empty. The march does not." },
+      { name: "Signal Ghost", blurb: "Pylons still talk. Shoot to claim, then spend the overclock." },
+      { name: "Midnight Prow", blurb: "Last lamp on the mile. Hold until dawn does not come." },
+    ],
+  },
+  {
+    theme: "tundra",
+    region: "White Grade",
+    holds: [
+      { name: "White Grade", blurb: "Ice on the asphalt. They slide faster than they should." },
+      { name: "Ice Culvert", blurb: "A frozen pipe. Ranks stack, then break." },
+      { name: "Frost Lantern", blurb: "Claim the lanterns or freeze under the drums." },
+      { name: "Gale Cut", blurb: "Wind shoves the horde. Strafe with it, not against." },
+      { name: "Black Ice", blurb: "No traction, no mercy. Towers earn their keep." },
+      { name: "Winter Stack", blurb: "The pass summit. The last warm thing is your muzzle." },
+    ],
+  },
+  {
+    theme: "magma",
+    region: "Kiln Road",
+    holds: [
+      { name: "Kiln Road", blurb: "The grade cooks. Ember veins underfoot, drums on the boil." },
+      { name: "Slag Approach", blurb: "Cinders for shoulders. Do not stand in the pools." },
+      { name: "Ember Vein", blurb: "A glowing crack down the lane. The dead like the heat." },
+      { name: "Crucible", blurb: "Everything that can burn, does. Pace the guns." },
+      { name: "Ashfall", blurb: "The sky is cinder. Ranks hide in the fall, then they don't." },
+      { name: "Red Mouth", blurb: "The kiln opens. Empty the magazine into it." },
+    ],
+  },
+  {
+    theme: "core",
+    region: "Ember Heart",
+    holds: [
+      { name: "Spore Gate", blurb: "Mycelium cracks the road. The heart is still ahead." },
+      { name: "Mycelial Cut", blurb: "Orange veins, living asphalt. They march in the bloom." },
+      { name: "Heartlight", blurb: "The glow is a second sun. Do not look away from the ranks." },
+      { name: "Last Pylon", blurb: "One more claim. Spend it like it is the last overclock." },
+      { name: "Solar Bloom", blurb: "The blight flowers. Hordes come in sheets." },
+      { name: "Ember Heart", blurb: "The line ends here. Hold the heart or the line is a rumor." },
+      { name: "The Hold", blurb: "No more road. Only the last rank, and you." },
     ],
   },
 ];
+
+const PRIMER_SPAWNS: SpawnEvent[] = [
+  horde(280, 5),
+  { at: 1500, kind: "barrel", lanes: [1] },
+  horde(2100, 8),
+  { at: 2900, kind: "pool", lanes: [0] },
+  horde(3400, 10),
+  { at: 4300, kind: "plate", lanes: [1], hits: 3 },
+  { at: 4900, kind: "spike", lanes: [2], count: 2 },
+  { at: 5400, kind: "barrel", lanes: [0] },
+  { at: 5900, kind: "pylons", lanes: [0, 2] },
+  { at: 6500, kind: "drum", lanes: [1, 2], count: 2 },
+  horde(7200, 16),
+];
+
+function buildSpawns(index: number, length: number, t: number): SpawnEvent[] {
+  const r = rand(1000 + index * 97);
+  const events: SpawnEvent[] = [];
+  const gap = Math.round(620 - t * 120);
+  let at = 360 + Math.round(r() * 60);
+  const waves = 7 + Math.floor(t * 5);
+  for (let w = 0; w < waves; w++) {
+    const roll = r();
+    const late = w / Math.max(1, waves - 1);
+    if (w === 0 || roll < 0.4) {
+      const n = 5 + Math.floor(t * 6) + Math.floor(late * 5);
+      events.push(horde(at, Math.min(18, n)));
+    } else if (roll < 0.54) {
+      events.push({ at, kind: "barrel", lanes: [Math.floor(r() * 3)] });
+    } else if (roll < 0.64) {
+      events.push({ at, kind: "pylons", lanes: [0, 2] });
+    } else if (roll < 0.74) {
+      const hits = 3 + Math.floor(t * 2.4);
+      events.push({ at, kind: "plate", lanes: [1], hits });
+    } else if (roll < 0.84) {
+      const n = 1 + Math.floor(t * 1.6);
+      events.push({ at, kind: "spike", lanes: [Math.floor(r() * 3)], count: n });
+    } else if (roll < 0.92 && t > 0.16) {
+      const n = 1 + Math.floor(t * 1.8);
+      events.push({ at, kind: "drum", lanes: [Math.floor(r() * 3)], count: n });
+    } else {
+      events.push({ at, kind: "pool", lanes: [Math.floor(r() * 3)] });
+    }
+    at += gap + Math.round(r() * 70);
+  }
+  if (!events.some((e) => e.kind === "pylons")) {
+    events.push({ at: Math.round(length * 0.52), kind: "pylons", lanes: [0, 2] });
+  }
+  if (!events.some((e) => e.kind === "barrel")) {
+    events.push({ at: Math.round(length * 0.28), kind: "barrel", lanes: [1] });
+  }
+  events.push(horde(Math.min(length - 420, at + 160), Math.min(18, 10 + Math.floor(t * 8))));
+  events.sort((a, b) => a.at - b.at);
+  return events;
+}
+
+function buildCampaign(): StageDef[] {
+  const out: StageDef[] = [];
+  let index = 0;
+  for (const region of CAMPAIGN) {
+    for (const hold of region.holds) {
+      const t = index / 49;
+      const id = index === 0 ? "primer" : `hold-${String(index + 1).padStart(2, "0")}`;
+      const length = Math.round(7600 + t * 3600);
+      out.push({
+        id,
+        name: hold.name,
+        blurb: hold.blurb,
+        length,
+        scroll: Math.round(226 + t * 28),
+        march: Math.round(132 + t * 40),
+        ashHp: 2 + Math.floor(t * 2.2),
+        tutorial: index === 0,
+        scrap: Math.round(70 + t * 48),
+        ember: Math.round(16 + t * 16),
+        rations: Math.round(10 + t * 8),
+        xp: Math.round(40 + t * 64),
+        spawns: index === 0 ? PRIMER_SPAWNS : buildSpawns(index, length, t),
+        theme: region.theme,
+        region: region.region,
+        index,
+      });
+      index += 1;
+    }
+  }
+  return out;
+}
+
+export const STAGES: StageDef[] = buildCampaign();
 
 export const WARDENS: WardenDef[] = [
   {
@@ -391,14 +515,21 @@ export const MAP_NODES: Array<{
   id: string;
   x: number;
   y: number;
-}> = [
-  { id: "primer", x: 54, y: 79 },
-  { id: "cinder", x: 28, y: 65 },
-  { id: "drums", x: 74, y: 54 },
-  { id: "trench", x: 26, y: 42 },
-  { id: "lanterns", x: 72, y: 31 },
-  { id: "approach", x: 50, y: 17 },
-];
+}> = STAGES.map((s, i) => ({
+  id: s.id,
+  x: i % 2 === 0 ? 34 : 66,
+  y: i,
+}));
+
+export function nextStageId(id: string): string | null {
+  const i = STAGES.findIndex((s) => s.id === id);
+  if (i < 0 || i >= STAGES.length - 1) return null;
+  return STAGES[i + 1].id;
+}
+
+export function themeOf(stage: StageDef): ThemeVisual {
+  return THEMES[stage.theme];
+}
 
 export function stageById(id: string): StageDef {
   const s = STAGES.find((st) => st.id === id);
