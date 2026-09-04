@@ -965,21 +965,22 @@ export class RunScene extends Phaser.Scene {
         consumed: false,
       });
       if (s) {
-        const glow = this.add.ellipse(px, parkY + 8, 92, 42, 0xf4b942, 0.42).setDepth(5.4);
-        const ring = this.add.ellipse(px, parkY + 8, 128, 58, 0xffe08a, 0.22).setDepth(5.3);
+        const glow = this.add.ellipse(s.x, s.y, 96, 86, 0xf4b942, 0.5).setDepth(5.4).setOrigin(0.5, 0.5);
+        const ring = this.add.ellipse(s.x, s.y, 118, 104, 0xffe08a, 0.28).setDepth(5.3).setOrigin(0.5, 0.5);
         s.setData("glow", glow);
         s.setData("glowRing", ring);
         this.tweens.add({
           targets: [glow, ring],
-          scaleX: 1.28,
-          scaleY: 1.38,
-          alpha: 0.12,
+          scaleX: 1.16,
+          scaleY: 1.16,
+          alpha: 0.16,
           duration: 680,
           yoyo: true,
           repeat: -1,
           ease: "Sine.easeInOut",
         });
         s.setTint(0xffe8b0);
+        this.plantSprite(s);
         this.flashWarn("SALVAGE CRATE — SHOOT IT");
       }
     } else if (ev.kind === "plate") {
@@ -1051,6 +1052,20 @@ export class RunScene extends Phaser.Scene {
       shadow.setDepth(4.5 + s.y * 0.004);
       shadow.setAlpha(0.42 + gScale * 0.22);
     }
+    const glow = s.getData("glow") as Phaser.GameObjects.Ellipse | undefined;
+    const glowRing = s.getData("glowRing") as Phaser.GameObjects.Ellipse | undefined;
+    if (glow || glowRing) {
+      const cx = s.x;
+      const cy = s.y - s.displayHeight * (originY - 0.5);
+      if (glow) {
+        glow.setPosition(cx, cy);
+        glow.setDepth(s.depth - 0.05);
+      }
+      if (glowRing) {
+        glowRing.setPosition(cx, cy);
+        glowRing.setDepth(s.depth - 0.08);
+      }
+    }
   }
 
   private makeMob(key: string, x: number, y: number, data: SpriteData): Phaser.Physics.Arcade.Sprite | null {
@@ -1072,7 +1087,7 @@ export class RunScene extends Phaser.Scene {
     const [w, h] = sizes[key] ?? [88, 88];
     s.setData("bw", w);
     s.setData("bh", h);
-    s.setData("originY", key === "pool" ? 0.72 : FEET_ORIGIN);
+    s.setData("originY", key === "pool" ? 0.72 : key === "barrel" ? 0.52 : FEET_ORIGIN);
     const body = s.body as Phaser.Physics.Arcade.Body | undefined;
     if (body) {
       body.setSize(s.frame.width * 0.46, s.frame.height * 0.55, true);
