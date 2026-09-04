@@ -7,7 +7,8 @@ export type SpawnKind =
   | "pool"
   | "barrel"
   | "plate"
-  | "pylons";
+  | "pylons"
+  | "brute";
 
 export interface SpawnEvent {
   at: number;
@@ -36,9 +37,18 @@ export interface StageDef {
   theme: ThemeId;
   region: string;
   index: number;
+  look: HoldLook;
 }
 
 export type ThemeId = "asphalt" | "desert" | "jungle" | "salt" | "night" | "tundra" | "magma" | "core";
+
+export interface HoldLook {
+  road: string;
+  flip: boolean;
+  overlay: number;
+  overlayAlpha: number;
+  haze: number;
+}
 
 export interface ThemeVisual {
   id: ThemeId;
@@ -59,7 +69,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   asphalt: {
     id: "asphalt",
     region: "The Grade",
-    road: "/game/road.jpg?v=td2",
+    road: "/game/road.jpg?v=det1",
     overlay: 0x1a1008,
     overlayAlpha: 0.12,
     shoulder: 0x1a120c,
@@ -73,7 +83,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   desert: {
     id: "desert",
     region: "Cinder Wash",
-    road: "/game/road-desert.jpg",
+    road: "/game/road-desert.jpg?v=det1",
     overlay: 0xc45c12,
     overlayAlpha: 0.1,
     shoulder: 0x3a2814,
@@ -87,7 +97,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   jungle: {
     id: "jungle",
     region: "Green Rot",
-    road: "/game/road-jungle.jpg",
+    road: "/game/road-jungle.jpg?v=det1",
     overlay: 0x143018,
     overlayAlpha: 0.16,
     shoulder: 0x0e2212,
@@ -101,7 +111,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   salt: {
     id: "salt",
     region: "Glass Flats",
-    road: "/game/road-salt.jpg",
+    road: "/game/road-salt.jpg?v=det1",
     overlay: 0xd8d0c0,
     overlayAlpha: 0.08,
     shoulder: 0x3a3830,
@@ -115,7 +125,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   night: {
     id: "night",
     region: "Blackout Mile",
-    road: "/game/road-night.jpg",
+    road: "/game/road-night.jpg?v=det1",
     overlay: 0x0a1028,
     overlayAlpha: 0.22,
     shoulder: 0x080c18,
@@ -129,7 +139,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   tundra: {
     id: "tundra",
     region: "White Grade",
-    road: "/game/road-tundra.jpg",
+    road: "/game/road-tundra.jpg?v=det1",
     overlay: 0x88b8d8,
     overlayAlpha: 0.1,
     shoulder: 0x1c2830,
@@ -143,7 +153,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   magma: {
     id: "magma",
     region: "Kiln Road",
-    road: "/game/road-magma.jpg",
+    road: "/game/road-magma.jpg?v=det1",
     overlay: 0x9b2f02,
     overlayAlpha: 0.14,
     shoulder: 0x1a0806,
@@ -157,7 +167,7 @@ export const THEMES: Record<ThemeId, ThemeVisual> = {
   core: {
     id: "core",
     region: "Ember Heart",
-    road: "/game/road-core.jpg",
+    road: "/game/road-core.jpg?v=det1",
     overlay: 0xe85d04,
     overlayAlpha: 0.12,
     shoulder: 0x180c08,
@@ -206,6 +216,10 @@ export const TOWER_SLOTS = [
 export function towerCost(built: number): number {
   return 22 + built * 18;
 }
+
+export const WALL_COST = 16;
+export const WALL_HP = 10;
+export const WALL_Y = 1388;
 
 function horde(at: number, count: number, lanes: number[] = [0, 1, 2]): SpawnEvent {
   return { at, kind: "ash", lanes, count };
@@ -325,58 +339,124 @@ const CAMPAIGN: Array<{
 ];
 
 const PRIMER_SPAWNS: SpawnEvent[] = [
-  horde(280, 5),
-  { at: 1500, kind: "barrel", lanes: [1] },
-  horde(2100, 8),
-  { at: 2900, kind: "pool", lanes: [0] },
-  horde(3400, 10),
-  { at: 4300, kind: "plate", lanes: [1], hits: 3 },
+  horde(240, 9),
+  { at: 1100, kind: "barrel", lanes: [1] },
+  horde(1600, 12),
+  { at: 2400, kind: "pool", lanes: [0] },
+  horde(2900, 14),
+  { at: 3700, kind: "plate", lanes: [1], hits: 3 },
+  horde(4300, 12),
   { at: 4900, kind: "spike", lanes: [2], count: 2 },
   { at: 5400, kind: "barrel", lanes: [0] },
   { at: 5900, kind: "pylons", lanes: [0, 2] },
   { at: 6500, kind: "drum", lanes: [1, 2], count: 2 },
-  horde(7200, 16),
+  horde(7200, 20),
 ];
 
-function buildSpawns(index: number, length: number, t: number): SpawnEvent[] {
+function buildSpawns(index: number, t: number): SpawnEvent[] {
   const r = rand(1000 + index * 97);
   const events: SpawnEvent[] = [];
-  const gap = Math.round(620 - t * 120);
-  let at = 360 + Math.round(r() * 60);
-  const waves = 7 + Math.floor(t * 5);
-  for (let w = 0; w < waves; w++) {
+  const gap = Math.round(500 - t * 90);
+  let at = 260 + Math.round(r() * 40);
+  const target = 6400 + Math.floor(t * 1800);
+  let w = 0;
+  while (at < target) {
     const roll = r();
-    const late = w / Math.max(1, waves - 1);
-    if (w === 0 || roll < 0.4) {
-      const n = 5 + Math.floor(t * 6) + Math.floor(late * 5);
-      events.push(horde(at, Math.min(18, n)));
-    } else if (roll < 0.54) {
+    const late = at / target;
+    if (w === 0 || roll < 0.52) {
+      const n = 8 + Math.floor(t * 9) + Math.floor(late * 8);
+      events.push(horde(at, Math.min(26, n)));
+    } else if (roll < 0.62) {
       events.push({ at, kind: "barrel", lanes: [Math.floor(r() * 3)] });
-    } else if (roll < 0.64) {
+    } else if (roll < 0.7) {
       events.push({ at, kind: "pylons", lanes: [0, 2] });
-    } else if (roll < 0.74) {
+    } else if (roll < 0.78) {
       const hits = 3 + Math.floor(t * 2.4);
       events.push({ at, kind: "plate", lanes: [1], hits });
-    } else if (roll < 0.84) {
-      const n = 1 + Math.floor(t * 1.6);
-      events.push({ at, kind: "spike", lanes: [Math.floor(r() * 3)], count: n });
-    } else if (roll < 0.92 && t > 0.16) {
+    } else if (roll < 0.86) {
       const n = 1 + Math.floor(t * 1.8);
+      events.push({ at, kind: "spike", lanes: [Math.floor(r() * 3)], count: n });
+    } else if (roll < 0.93 && t > 0.08) {
+      const n = 1 + Math.floor(t * 2);
       events.push({ at, kind: "drum", lanes: [Math.floor(r() * 3)], count: n });
     } else {
       events.push({ at, kind: "pool", lanes: [Math.floor(r() * 3)] });
     }
-    at += gap + Math.round(r() * 70);
+    at += gap + Math.round(r() * 50);
+    w += 1;
   }
+  events.push(horde(at, Math.min(26, 16 + Math.floor(t * 10))));
+  events.push({ at: Math.round(at * 0.68), kind: "brute", lanes: [1], count: 1 });
   if (!events.some((e) => e.kind === "pylons")) {
-    events.push({ at: Math.round(length * 0.52), kind: "pylons", lanes: [0, 2] });
+    events.push({ at: Math.round(at * 0.5), kind: "pylons", lanes: [0, 2] });
   }
-  if (!events.some((e) => e.kind === "barrel")) {
-    events.push({ at: Math.round(length * 0.28), kind: "barrel", lanes: [1] });
-  }
-  events.push(horde(Math.min(length - 420, at + 160), Math.min(18, 10 + Math.floor(t * 8))));
   events.sort((a, b) => a.at - b.at);
   return events;
+}
+
+function holdLook(theme: ThemeId, index: number, name: string): HoldLook {
+  const base = THEMES[theme];
+  const n = name.toLowerCase();
+  const slot = index % 3;
+  let road = base.road;
+  let flip = slot === 1;
+  let overlay = base.overlay;
+  let overlayAlpha = Math.min(0.22, base.overlayAlpha + (slot === 2 ? 0.05 : 0));
+  let haze = 0.05 + slot * 0.04;
+  if (theme === "asphalt") {
+    if (n.includes("overpass") || n.includes("stack") || slot === 2) road = "/game/road-overpass.jpg?v=var1";
+    if (n.includes("culvert")) {
+      overlay = 0x081018;
+      overlayAlpha = 0.24;
+      haze = 0.2;
+      flip = true;
+    }
+    if (n.includes("shimmer") || n.includes("heat")) {
+      overlay = 0xc45c12;
+      overlayAlpha = 0.18;
+      haze = 0.16;
+    }
+  } else if (theme === "desert") {
+    if (slot !== 0 || n.includes("well") || n.includes("dune") || n.includes("dry")) road = "/game/road-desert2.jpg?v=var1";
+    if (n.includes("sunkill") || n.includes("glass")) {
+      overlay = 0xffaa44;
+      overlayAlpha = 0.16;
+      haze = 0.18;
+    }
+  } else if (theme === "jungle") {
+    if (slot !== 0 || n.includes("canopy") || n.includes("wet") || n.includes("root")) road = "/game/road-jungle2.jpg?v=var1";
+    if (n.includes("rot") || n.includes("gauntlet")) {
+      overlay = 0x0a2010;
+      overlayAlpha = 0.22;
+      haze = 0.2;
+    }
+  } else if (theme === "night") {
+    if (slot !== 0 || n.includes("neon") || n.includes("sodium") || n.includes("midnight")) road = "/game/road-night2.jpg?v=var1";
+    if (n.includes("blackout") || n.includes("grid")) {
+      overlay = 0x050814;
+      overlayAlpha = 0.3;
+      haze = 0.12;
+    }
+  } else if (theme === "salt" && (n.includes("blind") || n.includes("mirage"))) {
+    overlay = 0xf0e8d8;
+    overlayAlpha = 0.16;
+    haze = 0.22;
+    flip = true;
+  } else if (theme === "tundra" && (n.includes("gale") || n.includes("ice") || n.includes("winter"))) {
+    overlay = 0xa8d0e8;
+    overlayAlpha = 0.16;
+    haze = 0.18;
+    flip = slot !== 0;
+  } else if (theme === "magma" && (n.includes("crucible") || n.includes("ashfall") || n.includes("red"))) {
+    overlay = 0xff3a00;
+    overlayAlpha = 0.2;
+    haze = 0.16;
+  } else if (theme === "core") {
+    overlayAlpha = 0.1 + (index % 3) * 0.05;
+    haze = 0.1 + (index % 3) * 0.05;
+    flip = slot === 2;
+  }
+  return { road, flip, overlay, overlayAlpha, haze };
 }
 
 function buildCampaign(): StageDef[] {
@@ -386,12 +466,13 @@ function buildCampaign(): StageDef[] {
     for (const hold of region.holds) {
       const t = index / 49;
       const id = index === 0 ? "primer" : `hold-${String(index + 1).padStart(2, "0")}`;
-      const length = Math.round(7600 + t * 3600);
+      const spawns = index === 0 ? PRIMER_SPAWNS : buildSpawns(index, t);
+      const lastAt = Math.max(...spawns.map((e) => e.at));
       out.push({
         id,
         name: hold.name,
         blurb: hold.blurb,
-        length,
+        length: lastAt + 860,
         scroll: Math.round(226 + t * 28),
         march: Math.round(132 + t * 40),
         ashHp: 2 + Math.floor(t * 2.2),
@@ -400,10 +481,11 @@ function buildCampaign(): StageDef[] {
         ember: Math.round(16 + t * 16),
         rations: Math.round(10 + t * 8),
         xp: Math.round(40 + t * 64),
-        spawns: index === 0 ? PRIMER_SPAWNS : buildSpawns(index, length, t),
+        spawns,
         theme: region.theme,
         region: region.region,
         index,
+        look: holdLook(region.theme, index, hold.name),
       });
       index += 1;
     }

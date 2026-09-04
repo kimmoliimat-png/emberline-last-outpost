@@ -7,6 +7,9 @@ import {
   ROAD_LEFT,
   ROAD_RIGHT,
   TOWER_SLOTS,
+  WALL_COST,
+  WALL_HP,
+  WALL_Y,
   stageById,
   starsFor,
   themeOf,
@@ -49,7 +52,7 @@ interface SpriteData {
 }
 
 const PLAYER_Y = 1608;
-const PLAYER_SIZE = 136;
+const PLAYER_SIZE = 152;
 const FEET_ORIGIN = 0.88;
 
 const DEADZONE = 18;
@@ -59,7 +62,7 @@ const OVERHEAT_RESET = 38;
 const BULLET_SPEED = 1080;
 const MOVE_SPEED = 540;
 const TOWER_RANGE = 1080;
-const TOWER_SIZE = 148;
+const TOWER_SIZE = 168;
 const TOWER_BURST = 3;
 const TOWER_SHOT_GAP = 0.08;
 const TOWER_RELOAD = 0.46;
@@ -69,9 +72,10 @@ const MARCH_MUL: Record<string, number> = {
   spike: 0.88,
   drum: 1.42,
   pool: 0.7,
-  barrel: 0.78,
+  barrel: 0,
   plate: 0.68,
   pylons: 0,
+  brute: 0.76,
 };
 
 export class RunScene extends Phaser.Scene {
@@ -90,6 +94,7 @@ export class RunScene extends Phaser.Scene {
     leftArr: Phaser.Input.Keyboard.Key;
     rightArr: Phaser.Input.Keyboard.Key;
     build: Phaser.Input.Keyboard.Key;
+    wall: Phaser.Input.Keyboard.Key;
   };
   private hpFill!: Phaser.GameObjects.Rectangle;
   private heatFill!: Phaser.GameObjects.Rectangle;
@@ -134,7 +139,13 @@ export class RunScene extends Phaser.Scene {
   private moveDir = 0;
   private towerCount = 0;
   private buildLock = false;
+  private wall: Phaser.GameObjects.Image | null = null;
+  private wallHp = 0;
+  private wallLive = false;
+  private wallRaising = false;
+  private wallHpText: Phaser.GameObjects.Text | null = null;
   private recoil = 0;
+  private dustAt = 0;
 
   constructor(cfg: RunConfig) {
     super("run");
@@ -191,33 +202,49 @@ export class RunScene extends Phaser.Scene {
       fill.width = 420 * p;
     });
 
-    this.load.image("road", this.theme.road);
+    const look = this.stage.look ?? {
+      road: this.theme.road,
+      flip: false,
+      overlay: this.theme.overlay,
+      overlayAlpha: this.theme.overlayAlpha,
+      haze: 0.08,
+    };
+    this.load.image("road", look.road);
     this.load.image("sky", "/game/sky.jpg");
-    this.load.image("tower", "/game/tower.png?v=td1");
+    this.load.image("tower", "/game/tower.png?v=rim2");
+    this.load.image("wall", "/game/wall.png?v=w1");
     this.load.spritesheet("towerBuild", "/game/tower-build.png?v=raise1", { frameWidth: 256, frameHeight: 256 });
     this.load.image("spike", "/game/heatspike.png?v=rear1");
     this.load.image("drum", "/game/drum.png?v=rear1");
-    this.load.image("pool", "/game/pool.png?v=rear1");
-    this.load.image("barrel", "/game/barrel.png?v=rear1");
+    this.load.image("pool", "/game/cinder-mite.png?v=mite1");
+    this.load.image("barrel", "/game/crate.png?v=crate1");
     this.load.image("plate", "/game/plate.png?v=rear1");
     this.load.image("pylon", "/game/pylon.png?v=rear1");
     this.load.spritesheet("soldier", "/game/soldier.png?v=ha1", { frameWidth: 256, frameHeight: 256 });
-    this.load.spritesheet("soldierIdle", "/game/soldier-idle.png?v=ha1", { frameWidth: 256, frameHeight: 256 });
-    this.load.spritesheet("soldierShoot", "/game/soldier-shoot.png?v=ha1", { frameWidth: 256, frameHeight: 256 });
-    this.load.spritesheet("ashwalker", "/game/ashwalker.png?v=walk2", { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet("soldierIdle", "/game/soldier-idle.png?v=rim2", { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet("soldierShoot", "/game/soldier-shoot.png?v=rim2", { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet("ashwalker", "/game/ashwalker.png?v=walk3", { frameWidth: 256, frameHeight: 256 });
     this.load.spritesheet("muzzle", "/game/muzzle.png?v=fx2", { frameWidth: 256, frameHeight: 256 });
     this.load.spritesheet("bullet", "/game/bullet.png", { frameWidth: 96, frameHeight: 96 });
     this.load.spritesheet("impact", "/game/impact.png?v=fx2", { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet("props", "/game/props.png?v=det1", { frameWidth: 256, frameHeight: 256 });
+    this.load.spritesheet("brute", "/game/brute.png?v=b1", { frameWidth: 256, frameHeight: 256 });
   }
 
   create() {
-    for (const key of ["ash-walk", "soldier-walk", "soldier-idle", "soldier-shoot", "muzzle-flash", "bullet-spin", "boom", "tower-raise"]) {
+    for (const key of ["ash-walk", "brute-walk", "soldier-walk", "soldier-idle", "soldier-shoot", "muzzle-flash", "bullet-spin", "boom", "tower-raise"]) {
       if (this.anims.exists(key)) this.anims.remove(key);
     }
     this.anims.create({
       key: "ash-walk",
-      frames: this.anims.generateFrameNumbers("ashwalker", { frames: [0, 1, 2, 3, 4, 5, 4, 3, 2, 1] }),
-      frameRate: 12,
+      frames: this.anims.generateFrameNumbers("ashwalker", { start: 0, end: 11 }),
+      frameRate: 8,
+      repeat: -1,
+    });
+    this.anims.create({
+      key: "brute-walk",
+      frames: this.anims.generateFrameNumbers("brute", { start: 0, end: 3 }),
+      frameRate: 7,
       repeat: -1,
     });
     this.anims.create({
@@ -235,7 +262,7 @@ export class RunScene extends Phaser.Scene {
     this.anims.create({
       key: "soldier-shoot",
       frames: this.anims.generateFrameNumbers("soldierShoot", { start: 0, end: 7 }),
-      frameRate: 18,
+      frameRate: 20,
       repeat: -1,
     });
     this.anims.create({
@@ -278,14 +305,27 @@ export class RunScene extends Phaser.Scene {
     g.destroy();
 
     this.sky = this.add.image(DESIGN_W / 2, 90, "sky").setDisplaySize(DESIGN_W, 180).setDepth(0).setVisible(false);
+    const look = this.stage.look ?? {
+      road: this.theme.road,
+      flip: false,
+      overlay: this.theme.overlay,
+      overlayAlpha: this.theme.overlayAlpha,
+      haze: 0.08,
+    };
     this.road = this.add
       .image(DESIGN_W / 2, DESIGN_H / 2, "road")
       .setDisplaySize(DESIGN_W, DESIGN_H)
+      .setFlipX(look.flip)
       .setDepth(1);
     this.add.rectangle(90, DESIGN_H / 2, 180, DESIGN_H, this.theme.shoulder, 0.5).setDepth(2);
     this.add.rectangle(990, DESIGN_H / 2, 180, DESIGN_H, this.theme.shoulder, 0.5).setDepth(2);
-    this.add.rectangle(DESIGN_W / 2, DESIGN_H / 2, DESIGN_W, DESIGN_H, this.theme.overlay, this.theme.overlayAlpha).setDepth(2.2);
+    this.add.rectangle(DESIGN_W / 2, DESIGN_H / 2, DESIGN_W, DESIGN_H, look.overlay, look.overlayAlpha).setDepth(2.2);
+    this.add.rectangle(DESIGN_W / 2, 220, DESIGN_W, 380, 0xd8c8a8, look.haze).setDepth(2.35);
     this.add.rectangle(DESIGN_W / 2, 70, DESIGN_W, 140, 0x100c09, 0.18).setDepth(2.3);
+    this.plantDecor();
+    this.add.rectangle(DESIGN_W / 2, DESIGN_H / 2, DESIGN_W, DESIGN_H, 0x000000, 0).setStrokeStyle(140, 0x100c09, 0.35).setDepth(16);
+    this.add.rectangle(0, DESIGN_H / 2, 90, DESIGN_H, 0x100c09, 0.28).setDepth(16);
+    this.add.rectangle(DESIGN_W, DESIGN_H / 2, 90, DESIGN_H, 0x100c09, 0.28).setDepth(16);
 
     this.mobs = this.physics.add.group({ maxSize: 140, allowGravity: false, runChildUpdate: false });
     this.bullets = this.physics.add.group({ maxSize: 180, allowGravity: false });
@@ -353,7 +393,7 @@ export class RunScene extends Phaser.Scene {
     this.muzzleFx.setOrigin(0.5, 0.92);
     this.muzzleFx.on("animationcomplete", () => this.muzzleFx.setVisible(false));
 
-    this.bootShadow = this.add.ellipse(this.player.x, this.player.y + 4, 70, 22, 0x000000, 0.4);
+    this.bootShadow = this.add.ellipse(this.player.x, this.player.y + 4, 82, 24, 0x000000, 0.55);
     this.bootShadow.setDepth(11);
 
     this.physics.add.overlap(this.bullets, this.mobs, (b, m) =>
@@ -368,6 +408,7 @@ export class RunScene extends Phaser.Scene {
       leftArr: kb.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
       rightArr: kb.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
       build: kb.addKey(Phaser.Input.Keyboard.KeyCodes.T),
+      wall: kb.addKey(Phaser.Input.Keyboard.KeyCodes.G),
     };
 
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => {
@@ -425,6 +466,7 @@ export class RunScene extends Phaser.Scene {
         t.setTexture("tower");
         t.setOrigin(0.5, 0.55);
         t.setDisplaySize(TOWER_SIZE, TOWER_SIZE);
+        t.setTint(0xffe4c4);
         t.setData("building", false);
         t.setData("cd", 0.2);
         this.flashWarn(this.towerCount === 1 ? "GUN TOWER ONLINE" : `TOWER ${this.towerCount} ONLINE`);
@@ -436,6 +478,83 @@ export class RunScene extends Phaser.Scene {
     audio.buff();
     this.pushHud();
     return true;
+  }
+
+  tryBuildWall(): boolean {
+    if (this.ended || this.wallLive || this.wallRaising) return false;
+    if (this.scrap < WALL_COST) return false;
+    this.scrap -= WALL_COST;
+    const g = this.groundAt(WALL_Y);
+    const w = this.add.image(DESIGN_W / 2, WALL_Y, "wall");
+    w.setOrigin(0.5, 0.72);
+    w.setDisplaySize((g.right - g.left) * 0.22, 28);
+    w.setDepth(7);
+    w.setAlpha(0.95);
+    this.wall = w;
+    this.wallRaising = true;
+    this.wallHp = WALL_HP;
+    this.wallHpText = this.add
+      .text(DESIGN_W / 2, WALL_Y - 36, String(WALL_HP), {
+        fontFamily: "Teko, sans-serif",
+        fontSize: "36px",
+        color: "#f4b942",
+      })
+      .setOrigin(0.5)
+      .setDepth(8);
+    this.dirt.explode(16, DESIGN_W / 2, WALL_Y);
+    this.tweens.add({
+      targets: w,
+      displayWidth: g.right - g.left + 24,
+      displayHeight: 92,
+      duration: 780,
+      ease: "Cubic.easeOut",
+      onComplete: () => {
+        this.wallRaising = false;
+        this.wallLive = true;
+        this.flashWarn("BARRICADE UP — THEY CLIMB IT");
+        audio.buff();
+      },
+    });
+    this.flashWarn("RAISING WALL");
+    audio.buff();
+    this.pushHud();
+    return true;
+  }
+
+  private chipWall(n: number) {
+    if (!this.wallLive) return;
+    this.wallHp = Math.max(0, this.wallHp - n);
+    if (this.wallHpText) this.wallHpText.setText(String(this.wallHp));
+    if (this.wall) this.wall.setTint(0xffc070);
+    this.time.delayedCall(70, () => this.wall?.clearTint());
+    if (this.wallHp <= 0) this.collapseWall();
+  }
+
+  private collapseWall() {
+    this.wallLive = false;
+    const w = this.wall;
+    const label = this.wallHpText;
+    this.wall = null;
+    this.wallHpText = null;
+    this.flashWarn("WALL DOWN");
+    audio.boom();
+    this.trauma = Math.min(1, this.trauma + 0.2);
+    if (w) {
+      this.tweens.add({
+        targets: w,
+        alpha: 0,
+        displayHeight: 18,
+        duration: 280,
+        onComplete: () => w.destroy(),
+      });
+    }
+    label?.destroy();
+    for (const s of this.mobs.getChildren() as Phaser.Physics.Arcade.Sprite[]) {
+      if (s.getData("climbing")) {
+        s.setData("climbing", false);
+        s.setData("climbed", true);
+      }
+    }
   }
 
   private wireControlsProbe() {
@@ -558,7 +677,12 @@ export class RunScene extends Phaser.Scene {
       this.buildLock = true;
       this.tryBuildTower();
     }
-    if (!held) this.buildLock = false;
+    const wallHeld = this.qaKeys ? this.qaKeys.includes("KeyG") : this.keys.wall.isDown;
+    if (wallHeld && !this.buildLock) {
+      this.buildLock = true;
+      this.tryBuildWall();
+    }
+    if (!held && !wallHeld) this.buildLock = false;
   }
 
   private groundAt(y: number) {
@@ -567,7 +691,7 @@ export class RunScene extends Phaser.Scene {
     return {
       left: DESIGN_W / 2 - half,
       right: DESIGN_W / 2 + half,
-      scale: 0.58 + t * 0.42,
+      scale: 0.72 + t * 0.34,
     };
   }
 
@@ -610,6 +734,10 @@ export class RunScene extends Phaser.Scene {
     }
     this.player.x = Phaser.Math.Clamp(this.player.x, ROAD_LEFT + 28, ROAD_RIGHT - 28);
     this.bootShadow.setPosition(this.player.x, this.player.y + 6);
+    if (this.moveDir !== 0 && this.time.now > this.dustAt) {
+      this.dustAt = this.time.now + 110;
+      this.dirt.explode(1, this.player.x, this.player.y + 4);
+    }
     this.player.setFlipX(false);
     this.playWarden();
     const muz = this.muzzlePos();
@@ -628,21 +756,48 @@ export class RunScene extends Phaser.Scene {
     for (const s of children) {
       if (!s.active) continue;
       const data = this.dataOf(s);
+      if (data.kind === "barrel") {
+        this.plantSprite(s);
+        continue;
+      }
       const mul = MARCH_MUL[data.kind] ?? 1;
       const close = s.y > PLAYER_Y - 420 ? 1.18 : 1;
       const mop = this.spawningDone && this.distance >= this.stage.length ? 1.3 : 1;
-      const speed = this.stage.march * mul * close * mop;
+      let speed = this.stage.march * mul * close * mop;
+      const canClimb = data.kind === "ash" || data.kind === "spike" || data.kind === "drum" || data.kind === "brute";
+      if (this.wallLive && this.wall && canClimb && !s.getData("climbed")) {
+        const band0 = this.wall.y - 70;
+        const band1 = this.wall.y + 44;
+        if (s.y >= band0 && s.y < band1) {
+          if (!s.getData("climbing")) {
+            s.setData("climbing", true);
+            this.chipWall(data.kind === "drum" ? 3 : 1);
+          }
+          speed *= data.kind === "spike" ? 0.32 : 0.2;
+        } else if (s.y >= band1 && s.getData("climbing")) {
+          s.setData("climbing", false);
+          s.setData("climbed", true);
+        }
+      }
       s.y += speed * dt;
       const g = this.groundAt(s.y);
-      if ((data.kind === "ash" || data.kind === "spike" || data.kind === "drum") && s.y > PLAYER_Y - 640) {
+      if (canClimb && s.y > PLAYER_Y - 640 && !s.getData("climbing")) {
         const pull = data.kind === "drum" ? 20 : 28;
         const dx = px - s.x;
         if (Math.abs(dx) > 12) s.x += Math.sign(dx) * pull * dt;
       }
       s.x = Phaser.Math.Clamp(s.x, g.left + 10, g.right - 10);
       this.plantSprite(s, g.scale);
+      if (s.getData("climbing") && this.wall) {
+        const band0 = this.wall.y - 70;
+        const band1 = this.wall.y + 44;
+        const t = Phaser.Math.Clamp((s.y - band0) / Math.max(1, band1 - band0), 0, 1);
+        const lift = Math.sin(t * Math.PI);
+        s.setOrigin(0.5, 0.88 - lift * 0.14);
+        s.setScale(s.scaleX * (1 + lift * 0.06), s.scaleY * (1 + lift * 0.14));
+      }
       if (data.kind === "drum") s.rotation += dt * 3.2;
-      if (data.kind === "ash" && s.anims.currentAnim?.key !== "ash-walk") s.play("ash-walk");
+      if (data.kind === "brute" && s.anims.currentAnim?.key !== "brute-walk") s.play("brute-walk");
       const label = s.getData("label") as Phaser.GameObjects.Text | undefined;
       if (label) label.setPosition(s.x, s.y - 28 * g.scale);
       if (data.kind === "pool" && this.physics.overlap(this.player, s)) this.inFire = true;
@@ -735,6 +890,32 @@ export class RunScene extends Phaser.Scene {
         lane,
         consumed: false,
       });
+    } else if (ev.kind === "brute") {
+      const hp = 36 + Math.floor(this.stage.index * 1.2);
+      const s = this.makeMob("brute", x, y, {
+        kind: "brute",
+        hp,
+        hits: 0,
+        dmg: 26,
+        heat: 4,
+        scrap: 14,
+        lane,
+        consumed: false,
+      });
+      if (s) {
+        s.play("brute-walk");
+        s.setTint(0xff8866);
+        const label = this.add
+          .text(s.x, s.y - 40, String(hp), {
+            fontFamily: "Teko, sans-serif",
+            fontSize: "36px",
+            color: "#ff6a3c",
+          })
+          .setOrigin(0.5)
+          .setDepth(9);
+        s.setData("label", label);
+        this.flashWarn("BRUTE ON THE LINE");
+      }
     } else if (ev.kind === "spike") {
       this.makeMob("spike", x, y, {
         kind: "spike",
@@ -769,16 +950,38 @@ export class RunScene extends Phaser.Scene {
         consumed: false,
       });
     } else if (ev.kind === "barrel") {
-      this.makeMob("barrel", x, y, {
+      const parkY = 1140;
+      const g = this.groundAt(parkY);
+      const side = lane % 2 === 0 ? -1 : 1;
+      const px = (side < 0 ? g.left : g.right) + side * 32;
+      const s = this.makeMob("barrel", px, parkY, {
         kind: "barrel",
         hp: 3,
         hits: 0,
         dmg: 0,
         heat: 0,
-        scrap: 4,
+        scrap: 5,
         lane,
         consumed: false,
       });
+      if (s) {
+        const glow = this.add.ellipse(px, parkY + 8, 92, 42, 0xf4b942, 0.42).setDepth(5.4);
+        const ring = this.add.ellipse(px, parkY + 8, 128, 58, 0xffe08a, 0.22).setDepth(5.3);
+        s.setData("glow", glow);
+        s.setData("glowRing", ring);
+        this.tweens.add({
+          targets: [glow, ring],
+          scaleX: 1.28,
+          scaleY: 1.38,
+          alpha: 0.12,
+          duration: 680,
+          yoyo: true,
+          repeat: -1,
+          ease: "Sine.easeInOut",
+        });
+        s.setTint(0xffe8b0);
+        this.flashWarn("SALVAGE CRATE — SHOOT IT");
+      }
     } else if (ev.kind === "plate") {
       const hits = ev.hits ?? 3;
       const s = this.makeMob("plate", x, y, {
@@ -805,24 +1008,48 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
+  private plantDecor() {
+    const frames = [2, 3, 4, 5];
+    const seed = (this.stage.index + 3) * 9973;
+    let s = seed >>> 0;
+    const rnd = () => {
+      s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+      return s / 4294967296;
+    };
+    for (let i = 0; i < 18; i++) {
+      const y = 220 + i * 88 + rnd() * 30;
+      const g = this.groundAt(y);
+      const side = i % 2 === 0 ? -1 : 1;
+      const x = (side < 0 ? g.left : g.right) + side * (18 + rnd() * 36);
+      const spr = this.add.image(x, y, "props", frames[Math.floor(rnd() * frames.length)]);
+      const sc = (0.34 + rnd() * 0.18) * g.scale;
+      spr.setOrigin(0.5, 0.88);
+      spr.setScale(sc);
+      spr.setDepth(3.2 + y * 0.003);
+      spr.setAlpha(0.88);
+      spr.setFlipX(side > 0);
+    }
+  }
+
   private plantSprite(s: Phaser.Physics.Arcade.Sprite, scale?: number) {
     const gScale = scale ?? this.groundAt(s.y).scale;
     const bw = (s.getData("bw") as number) || 96;
     const bh = (s.getData("bh") as number) || 96;
     const originY = (s.getData("originY") as number) ?? FEET_ORIGIN;
-    if (s.originY !== originY) s.setOrigin(0.5, originY);
-    const sx = (bw * gScale) / 256;
-    const sy = (bh * gScale) / 256;
-    if (Math.abs(s.scaleX - sx) > 0.004 || Math.abs(s.scaleY - sy) > 0.004) {
+    if (!s.getData("climbing") && Math.abs(s.originY - originY) > 0.01) s.setOrigin(0.5, originY);
+    const q = Math.round(gScale * 14) / 14;
+    const sx = (bw * q) / 256;
+    const sy = (bh * q) / 256;
+    if (Math.abs(s.scaleX - sx) > 0.01 || Math.abs(s.scaleY - sy) > 0.01) {
       s.setScale(sx, sy);
     }
     s.setDepth(5 + s.y * 0.004);
     const shadow = s.getData("shadow") as Phaser.GameObjects.Ellipse | undefined;
     if (shadow) {
-      shadow.setPosition(s.x, s.y + 4);
-      shadow.setSize(bw * gScale * 0.48, Math.max(8, 14 * gScale));
+      shadow.setPosition(s.x, s.y + 6);
+      shadow.setSize(bw * gScale * 0.62, Math.max(10, 18 * gScale));
       shadow.setDepth(4.5 + s.y * 0.004);
-      shadow.setAlpha(0.28 + gScale * 0.2);
+      shadow.setAlpha(0.42 + gScale * 0.22);
     }
   }
 
@@ -833,20 +1060,26 @@ export class RunScene extends Phaser.Scene {
     s.setTexture(key);
     s.setActive(true).setVisible(true).setAlpha(1).clearTint().setRotation(0);
     const sizes: Record<string, [number, number]> = {
-      ashwalker: [92, 128],
-      spike: [58, 88],
-      drum: [64, 72],
-      pool: [120, 72],
-      barrel: [64, 78],
-      plate: [84, 84],
-      pylon: [52, 90],
+      ashwalker: [124, 176],
+      brute: [168, 236],
+      spike: [64, 96],
+      drum: [70, 80],
+      pool: [86, 78],
+      barrel: [96, 86],
+      plate: [92, 92],
+      pylon: [58, 98],
     };
     const [w, h] = sizes[key] ?? [88, 88];
     s.setData("bw", w);
     s.setData("bh", h);
-    s.setData("originY", key === "pool" ? 0.55 : FEET_ORIGIN);
+    s.setData("originY", key === "pool" ? 0.72 : FEET_ORIGIN);
     const body = s.body as Phaser.Physics.Arcade.Body | undefined;
-    if (body) body.setSize(s.frame.width * 0.46, s.frame.height * 0.55, true);
+    if (body) {
+      body.setSize(s.frame.width * 0.46, s.frame.height * 0.55, true);
+      body.setVelocity(0, 0);
+      body.setAllowGravity(false);
+      if (data.kind === "barrel") body.moves = false;
+    }
     s.anims.stop();
     s.setData("kind", data.kind);
     s.setData("hp", data.hp);
@@ -857,16 +1090,22 @@ export class RunScene extends Phaser.Scene {
     s.setData("lane", data.lane);
     s.setData("consumed", false);
     s.setData("buff", data.buff ?? null);
-    if (key === "ashwalker") {
+    if (key === "ashwalker" || key === "brute") {
       let shadow = s.getData("shadow") as Phaser.GameObjects.Ellipse | undefined;
       if (!shadow || !shadow.scene) {
-        shadow = this.add.ellipse(x, y + 4, 52, 12, 0x000000, 0.4);
+        shadow = this.add.ellipse(x, y + 4, key === "brute" ? 88 : 64, 16, 0x000000, 0.5);
         s.setData("shadow", shadow);
       }
       shadow.setVisible(true);
-      s.play("ash-walk");
-      s.anims.setProgress(Math.random());
-      if (this.theme.ashTint) s.setTint(this.theme.ashTint);
+      if (key === "ashwalker") {
+        s.play("ash-walk");
+        s.anims.timeScale = 0.82 + Math.random() * 0.22;
+        s.anims.setProgress(Math.random());
+        s.clearTint();
+      } else {
+        s.play("brute-walk");
+        s.clearTint();
+      }
       this.dirt.explode(4, x, y);
     } else {
       const shadow = s.getData("shadow") as Phaser.GameObjects.Ellipse | undefined;
@@ -875,7 +1114,10 @@ export class RunScene extends Phaser.Scene {
     const g = this.groundAt(s.y);
     s.x = Phaser.Math.Clamp(s.x, g.left + 10, g.right - 10);
     this.plantSprite(s);
-    if (key === "pool") s.setDepth(3);
+    if (key === "pool") {
+      s.setDepth(6);
+      s.setTint(0xff8844);
+    }
     return s;
   }
 
@@ -898,6 +1140,18 @@ export class RunScene extends Phaser.Scene {
     if (label) {
       label.destroy();
       s.setData("label", undefined);
+    }
+    const glow = s.getData("glow") as Phaser.GameObjects.Ellipse | undefined;
+    if (glow) {
+      this.tweens.killTweensOf(glow);
+      glow.destroy();
+      s.setData("glow", undefined);
+    }
+    const glowRing = s.getData("glowRing") as Phaser.GameObjects.Ellipse | undefined;
+    if (glowRing) {
+      this.tweens.killTweensOf(glowRing);
+      glowRing.destroy();
+      s.setData("glowRing", undefined);
     }
     const shadow = s.getData("shadow") as Phaser.GameObjects.Ellipse | undefined;
     if (shadow) shadow.setVisible(false);
@@ -1044,7 +1298,10 @@ export class RunScene extends Phaser.Scene {
     if (d.kind !== "ash") {
       m.setTint(0xffc070);
       this.time.delayedCall(55, () => {
-        if (m.active) m.clearTint();
+        if (!m.active) return;
+        if (d.kind === "brute") m.setTint(0xff8866);
+        else if (d.kind === "barrel") m.setTint(0xffe8b0);
+        else m.clearTint();
       });
     }
     const label = m.getData("label") as Phaser.GameObjects.Text | undefined;
@@ -1151,13 +1408,13 @@ export class RunScene extends Phaser.Scene {
     for (const s of this.mobs.getChildren() as Phaser.Physics.Arcade.Sprite[]) {
       if (!s.active) continue;
       const kind = s.getData("kind") as Kind;
-      if (kind === "ash" || kind === "spike" || kind === "drum" || kind === "pool") n += 1;
+      if (kind === "ash" || kind === "spike" || kind === "drum" || kind === "pool" || kind === "brute") n += 1;
     }
     return n;
   }
 
   private checkWin() {
-    if (this.distance < this.stage.length) return;
+    if (!this.spawningDone) return;
     if (this.threatCount() === 0) this.end(true);
   }
 
@@ -1166,9 +1423,7 @@ export class RunScene extends Phaser.Scene {
     this.heatFill.width = 420 * (this.heat / 100);
     this.heatFill.fillColor = this.overheated ? 0xd24a3c : 0xe85d04;
     this.distFill.width = 900 * Math.min(1, this.distance / this.stage.length);
-    this.scrapText.setText(
-      this.towerCount >= MAX_TOWERS ? `SCRAP ${this.scrap}` : `SCRAP ${this.scrap}  ·  T ${towerCost(this.towerCount)}`,
-    );
+    this.scrapText.setText(`SCRAP ${this.scrap}`);
     this.warnText.setText(this.overheated ? "GUNS OVERHEAT" : this.warnText.text);
     if (this.overheated) this.warnText.setAlpha(0.7 + 0.3 * Math.sin(this.game.loop.frame));
     const tip = this.tutorialTip();
@@ -1180,20 +1435,21 @@ export class RunScene extends Phaser.Scene {
 
   private tutorialTip(): string | null {
     if (!this.stage.tutorial) return this.buffName ? this.buffName : null;
-    if (this.distance < 700) return "A / D or swipe to strafe. Your rifle fires on its own.";
+    if (this.distance < 700) return "Slide to strafe. Your rifle fires on its own.";
     if (this.distance < 1600) return "Sweep the line. Closest Ashwalkers first.";
-    if (this.distance < 2500) return "Kills drop scrap. A gun tower costs 22 scrap — hold the line first.";
-    if (this.distance < 3400) return "Ember Pools stoke Heat. Snuff them or guns seize at 100.";
+    if (this.distance < 2500) return "Kills drop scrap. Tower 22. Wall 16 — they climb it slowly.";
+    if (this.distance < 3400) return "Cinder mites stoke Heat. Kill them or the guns seize at 100.";
     if (this.distance < 4300) return "Raise a tower and it will chew the horde for you.";
     if (this.distance < 5200) return "Breaker Plates take numbered hits. Empty them for scrap.";
     if (this.distance < 6100) return "Heat Spikes are armored. Burn them down.";
-    if (this.distance < 7000) return "Choice Pylons: shoot LEFT for Overclock, RIGHT for Plating.";
-    return "Three towers max. Hold the line until the last rank falls.";
+    if (this.distance < 7000) return "Pylons: left Overclock, right Plating. Shoot to claim.";
+    return "Three towers max. One wall. Hold until the last rank falls.";
   }
 
   private pushHud() {
     const cost = towerCost(this.towerCount);
     const canBuild = this.towerCount < MAX_TOWERS && this.scrap >= cost;
+    const canBuildWall = !this.wallLive && !this.wallRaising && this.scrap >= WALL_COST;
     const hud: RunHud = {
       hp: this.hp,
       maxHp: this.maxHp,
@@ -1206,6 +1462,9 @@ export class RunScene extends Phaser.Scene {
       towers: this.towerCount,
       towerCost: cost,
       canBuild,
+      wallCost: WALL_COST,
+      canBuildWall,
+      hasWall: this.wallLive || this.wallRaising,
     };
     this.cfg.onHud(hud);
     let closest = 9999;
@@ -1213,7 +1472,7 @@ export class RunScene extends Phaser.Scene {
     for (const s of this.mobs.getChildren() as Phaser.Physics.Arcade.Sprite[]) {
       if (!s.active) continue;
       const kind = s.getData("kind") as Kind;
-      if (kind === "ash" || kind === "spike" || kind === "drum" || kind === "pool") {
+      if (kind === "ash" || kind === "spike" || kind === "drum" || kind === "pool" || kind === "brute") {
         n += 1;
         if (s.y < closest) closest = s.y;
       }
@@ -1232,6 +1491,7 @@ export class RunScene extends Phaser.Scene {
         scrap: this.scrap,
         canBuild,
         tryBuild: () => this.tryBuildTower(),
+        tryBuildWall: () => this.tryBuildWall(),
         grantScrap: (n: number) => {
           this.scrap += n;
           this.pushHud();
@@ -1292,6 +1552,7 @@ declare global {
       scrap?: number;
       canBuild?: boolean;
       tryBuild?: () => boolean;
+      tryBuildWall?: () => boolean;
       grantScrap?: (n: number) => void;
       enter?: () => void;
     };

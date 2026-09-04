@@ -116,13 +116,17 @@ export function RunScreen() {
           type="button"
           disabled={!hud?.canBuild}
           onClick={() => window.__emberline?.tryBuild?.()}
-          className="h-12 min-w-0 flex-1 rounded-md bg-amber font-display text-2xl tracking-wide text-bg disabled:bg-surface-2 disabled:text-faint"
+          className="h-12 min-w-0 flex-1 rounded-md bg-amber font-display text-xl tracking-wide text-bg disabled:bg-surface-2 disabled:text-faint"
         >
-          {!hud
-            ? "Raise gun tower"
-            : hud.towers >= 3
-              ? "Towers maxed"
-              : `Raise gun tower · ${hud.towerCost} scrap`}
+          {!hud ? "Tower" : hud.towers >= 3 ? "Towers max" : `Tower · ${hud.towerCost}`}
+        </button>
+        <button
+          type="button"
+          disabled={!hud?.canBuildWall}
+          onClick={() => window.__emberline?.tryBuildWall?.()}
+          className="h-12 min-w-0 flex-1 rounded-md border border-amber bg-surface font-display text-xl tracking-wide text-amber disabled:border-border disabled:text-faint"
+        >
+          {!hud ? "Wall" : hud.hasWall ? "Wall up" : `Wall · ${hud.wallCost}`}
         </button>
       </div>
       {paused ? (

@@ -1,6 +1,15 @@
-import { useEffect } from "react";
 import { audio } from "../audio";
-import { useGame } from "../store";
+import { isStageUnlocked, useGame } from "../store";
+import { STAGES } from "../data/catalog";
+
+function resumeStage() {
+  const save = useGame.getState().save;
+  const id = save.lastStageId ?? "primer";
+  if (isStageUnlocked(save, id)) return id;
+  let last = "primer";
+  for (const s of STAGES) if (isStageUnlocked(save, s.id)) last = s.id;
+  return last;
+}
 
 function enterHold() {
   try {
@@ -9,33 +18,23 @@ function enterHold() {
   } catch {
     /* gesture / autoplay policies */
   }
-  useGame.getState().startRun("primer");
+  useGame.getState().startRun(resumeStage());
+}
+
+function openMap() {
+  try {
+    audio.unlock();
+  } catch {
+    /* autoplay */
+  }
+  useGame.getState().go("map");
 }
 
 export function TitleScreen() {
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.__emberline = {
-        ...(window.__emberline ?? { hp: 0, heat: 0, screen: "title" }),
-        screen: "title",
-        enter: enterHold,
-      };
-    }
-    enterHold();
-    const t = window.setTimeout(enterHold, 100);
-    return () => window.clearTimeout(t);
-  }, []);
-
+  const save = useGame((s) => s.save);
+  const hasLine = STAGES.some((s) => save.stages[s.id]?.attempts);
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      aria-label="Enter the Emberline"
-      className="relative flex h-full w-full cursor-pointer select-none flex-col"
-      style={{ touchAction: "manipulation" }}
-      onPointerDown={() => enterHold()}
-      onClick={() => enterHold()}
-    >
+    <div className="relative flex h-full w-full select-none flex-col">
       <img
         src="/game/title.jpg"
         alt=""
@@ -51,19 +50,26 @@ export function TitleScreen() {
           <span className="mt-1 block text-4xl text-amber">Last Outpost</span>
         </h1>
         <p className="max-w-[34ch] text-sm leading-relaxed text-muted">
-          A Warden holds the Emberline. Strafe the grade, burn the Ashwalker horde, and raise gun towers when the salvage is enough.
+          A Warden holds the Emberline. Slide the grade, burn the Ashwalker horde, and raise towers and walls when the salvage is enough.
         </p>
         <button
           id="enter-emberline"
           type="button"
           data-enter="1"
-          onPointerDown={() => enterHold()}
-          onClick={() => enterHold()}
+          onClick={enterHold}
           className="relative z-20 flex h-16 w-full items-center justify-center rounded-md bg-amber font-display text-3xl tracking-wide text-bg"
         >
-          Enter the Emberline
+          {hasLine ? "Continue the hold" : "Enter the Emberline"}
         </button>
-        <p className="text-center text-[11px] uppercase tracking-[0.18em] text-faint">Tap anywhere · A / D to move</p>
+        <button
+          type="button"
+          data-open-map="1"
+          onClick={openMap}
+          className="relative z-20 flex h-14 w-full items-center justify-center rounded-md border border-amber bg-bg/70 font-display text-2xl tracking-wide text-amber"
+        >
+          Highway map
+        </button>
+        <p className="text-center text-[11px] uppercase tracking-[0.18em] text-faint">Slide to strafe · rifle fires itself</p>
       </div>
     </div>
   );

@@ -28,6 +28,8 @@ export interface StageSave {
   attempts: number;
 }
 
+export type MenuScreen = "title" | "map" | "hub" | "roster";
+
 export interface SaveState {
   version: 1;
   scrap: number;
@@ -40,6 +42,8 @@ export interface SaveState {
   tutorialDone: boolean;
   muted: boolean;
   seenBrief: boolean;
+  lastStageId: string;
+  lastScreen: MenuScreen;
 }
 
 export interface RunResult {
@@ -70,6 +74,9 @@ export interface RunHud {
   towers: number;
   towerCost: number;
   canBuild: boolean;
+  wallCost: number;
+  canBuildWall: boolean;
+  hasWall: boolean;
 }
 
 const SAVE_KEY = "emberline-save-v1";
@@ -93,6 +100,8 @@ function defaultSave(): SaveState {
     tutorialDone: false,
     muted: false,
     seenBrief: false,
+    lastStageId: "primer",
+    lastScreen: "title",
   };
 }
 
@@ -107,6 +116,11 @@ function migrate(raw: unknown): SaveState {
     buildings: { ...base.buildings, ...s.buildings },
     wardens: { ...base.wardens, ...s.wardens },
     stages: { ...base.stages, ...s.stages },
+    lastStageId: typeof s.lastStageId === "string" ? s.lastStageId : "primer",
+    lastScreen:
+      s.lastScreen === "map" || s.lastScreen === "hub" || s.lastScreen === "roster" || s.lastScreen === "title"
+        ? s.lastScreen
+        : "title",
   };
 }
 
@@ -199,17 +213,26 @@ export const useGame = create<GameStore>((set, get) => ({
   hydrate: () => {
     const save = grantIdle(loadSave());
     persist(save);
-    set({ save, hydrated: true });
+    const screen: Screen =
+      save.lastScreen === "map" || save.lastScreen === "hub" || save.lastScreen === "roster" ? save.lastScreen : "title";
+    set({ save, hydrated: true, screen });
   },
   go: (screen) => {
     get().applyIdle();
-    set({ screen, paused: false });
+    const save = get().save;
+    const lastScreen: MenuScreen =
+      screen === "map" || screen === "hub" || screen === "roster" || screen === "title" ? screen : save.lastScreen;
+    const next = { ...save, lastScreen };
+    persist(next);
+    set({ screen, paused: false, save: next });
   },
   startRun: (stageId) => {
     const cur = get();
     if (cur.screen === "run" && cur.runStageId === stageId) return;
     cur.applyIdle();
-    set({ screen: "run", runStageId: stageId, hud: null, paused: false, result: null });
+    const save = { ...cur.save, lastStageId: stageId, lastScreen: "map" as MenuScreen };
+    persist(save);
+    set({ screen: "run", runStageId: stageId, hud: null, paused: false, result: null, save });
   },
   setHud: (hud) => set({ hud }),
   setPaused: (paused) => set({ paused }),
